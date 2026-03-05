@@ -1,0 +1,2164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse Keys — Moog Edition</title>
+  <style>
+    :root {
+      --bg: #16140f;
+      --surface: #1e1b14;
+      --panel: #252118;
+      --panel-border: #3c3628;
+      --ink: #ede0c8;
+      --muted: #7a6e5a;
+      --accent: #c85f32;
+      --accent2: #3d8a7a;
+      --accent-glow: rgba(200,95,50,0.15);
+      --white-key: #f0ead8;
+      --black-key: #1a1712;
+      --key-active: #c85f32;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--ink); font-family: 'Trebuchet MS','Segoe UI',sans-serif; min-height: 100vh; }
+
+    /* ── Header ── */
+    .synth-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; background: var(--surface);
+      border-bottom: 2px solid var(--panel-border);
+    }
+    .synth-title { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; }
+    .synth-title span { color: var(--accent); }
+    .synth-title small { font-size: 0.65rem; color: var(--muted); font-weight: 400; margin-left: 6px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+    .preset-bar { display: flex; align-items: center; gap: 6px; }
+    .preset-nav {
+      background: var(--panel); border: 1px solid var(--panel-border); color: var(--ink);
+      border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 0.9rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .preset-nav:hover { background: var(--accent); border-color: var(--accent); }
+    #presetName { font-weight: 700; font-size: 0.82rem; min-width: 110px; text-align: center; color: var(--ink); }
+    #presetSelect { background: var(--surface); color: var(--ink); border: 1px solid var(--panel-border); border-radius: 6px; padding: 3px 6px; font: inherit; font-size: 0.75rem; max-width: 140px; }
+    .btn-save { background: var(--accent2); color: #fff; border: none; border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+    .btn-save:hover { filter: brightness(1.15); }
+
+    /* ── Synth body panels ── */
+    .synth-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.15fr 1fr 1.15fr;
+      gap: 8px; padding: 10px 10px 6px;
+    }
+    .synth-panel {
+      background: var(--panel); border: 1px solid var(--panel-border);
+      border-radius: 10px; padding: 10px 10px 12px;
+    }
+    .panel-title {
+      font-size: 0.6rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--accent); margin-bottom: 10px;
+      padding-bottom: 5px; border-bottom: 1px solid var(--panel-border);
+    }
+    .sec-label {
+      font-size: 0.58rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em; margin: 7px 0 3px;
+    }
+
+    /* ── Knobs ── */
+    .knob-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; margin-bottom: 4px; }
+    .knob-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .knob {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: radial-gradient(circle at 38% 32%, #3a3220, #0e0d0a);
+      border: 2px solid #3a3220; cursor: ns-resize; position: relative;
+      touch-action: none; flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .knob:hover { border-color: var(--accent); }
+    .knob-dot {
+      position: absolute; width: 4px; height: 14px;
+      background: var(--accent); border-radius: 2px;
+      left: 50%; top: 50%;
+      margin-left: -2px; margin-top: -14px;
+      transform-origin: 2px 14px;
+    }
+    .knob-label { font-size: 0.58rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; text-align: center; max-width: 46px; line-height: 1.1; }
+    .knob-val { font-size: 0.65rem; color: var(--ink); font-weight: 700; text-align: center; min-width: 34px; }
+
+    /* ── Toggle ── */
+    .tog {
+      min-height: 24px; padding: 0 8px; border: 1px solid var(--panel-border);
+      border-radius: 5px; background: var(--surface); color: var(--muted);
+      font: inherit; font-size: 0.68rem; font-weight: 700; cursor: pointer;
+      transition: all 80ms; white-space: nowrap;
+    }
+    .tog.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .tog:hover:not(.on) { border-color: var(--accent); color: var(--ink); }
+
+    /* ── Selects ── */
+    select, .synth-panel select {
+      background: var(--surface); color: var(--ink); border: 1px solid var(--panel-border);
+      border-radius: 5px; padding: 3px 5px; font: inherit; font-size: 0.72rem; width: 100%;
+    }
+
+    /* ── ADSR ── */
+    .adsr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; }
+    .adsr-row { display: flex; flex-direction: column; gap: 1px; }
+    .adsr-row label { font-size: 0.57rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .adsr-row input[type=range] { width: 100%; accent-color: var(--accent); height: 14px; }
+
+    /* ── Oscilloscope ── */
+    .viz-bar { padding: 4px 10px 6px; }
+    #osc-canvas {
+      width: 100%; height: 56px; background: #08070500; border-radius: 6px;
+      border: 1px solid var(--panel-border); display: block;
+    }
+
+    /* ── Status row ── */
+    .status-row {
+      display: flex; gap: 12px; padding: 4px 12px 6px;
+      font-size: 0.7rem; color: var(--muted); align-items: center; flex-wrap: wrap;
+    }
+    .status-row strong { color: var(--ink); }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 4px; }
+    .status-dot.on { background: #5cb85c; box-shadow: 0 0 6px #5cb85c; }
+
+    /* ── Keyboard shell ── */
+    .keyboard-shell {
+      margin: 0 10px 10px; padding: 10px;
+      border-radius: 10px; background: #0e0c09;
+      border: 1px solid var(--panel-border); overflow-x: auto;
+    }
+    .keyboard {
+      position: relative; min-width: 960px; height: 220px;
+      user-select: none; touch-action: none;
+    }
+    .white-keys { display: flex; height: 100%; }
+    .key { position: relative; border: 0; padding: 0; outline: none; cursor: pointer; }
+    .white {
+      flex: 1 0 0; height: 100%; border-radius: 0 0 10px 10px;
+      border: 1px solid #3a3020;
+      background: linear-gradient(180deg,#f0e8d0,#ddd0b0);
+    }
+    .white.active { background: linear-gradient(180deg,#f0a830,#c07018); }
+    .black {
+      position: absolute; top: 0; width: 5.8%; height: 62%;
+      margin-left: -2.9%; border-radius: 0 0 8px 8px;
+      background: linear-gradient(180deg,#2a2218,#0a0806);
+      border: 1px solid #3a3020; z-index: 2;
+    }
+    .black.active { background: linear-gradient(180deg,#c85f32,#7a3010); }
+    .label {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      text-align: center; pointer-events: none; width: calc(100% - 4px);
+    }
+    .white .label { bottom: 10px; }
+    .black .label { bottom: 6px; }
+    .kbd { display: block; font-size: 0.7rem; font-weight: 800; color: rgba(20,16,10,0.7); }
+    .black .kbd { color: rgba(240,220,180,0.7); }
+    .note { display: block; font-size: 0.58rem; opacity: 0.6; color: inherit; }
+
+    /* ── Controls strip ── */
+    .ctrl-strip {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      padding: 4px 10px 8px;
+    }
+    .ctrl-strip label { font-size: 0.68rem; color: var(--muted); margin-right: 2px; }
+    .ctrl-strip input[type=range] { accent-color: var(--accent); width: 80px; }
+    .ctrl-btn {
+      background: var(--surface); color: var(--ink); border: 1px solid var(--panel-border);
+      border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 0.72rem;
+      font-weight: 700; cursor: pointer;
+    }
+    .ctrl-btn:hover { background: var(--panel-border); }
+    .ctrl-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .ctrl-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .ctrl-btn.secondary { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+    #octaveReadout { font-size: 0.72rem; font-weight: 700; color: var(--ink); padding: 4px 8px; background: var(--surface); border: 1px solid var(--panel-border); border-radius: 6px; }
+
+    /* ── Responsive ── */
+    @media(max-width:1100px) { .synth-body { grid-template-columns: 1fr 1fr 1fr; } }
+    @media(max-width:720px)  { .synth-body { grid-template-columns: 1fr 1fr; } }
+    @media(max-width:440px)  { .synth-body { grid-template-columns: 1fr; } }
+
+    /* ── Osc section rows ── */
+    .osc-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+    .osc-row .lbl { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; min-width: 26px; }
+
+    /* ── Filter type row ── */
+    .filter-types { display: flex; gap: 3px; margin-top: 4px; }
+    .ftype-btn {
+      flex: 1; padding: 3px 2px; font: inherit; font-size: 0.62rem; font-weight: 700;
+      background: var(--surface); color: var(--muted); border: 1px solid var(--panel-border);
+      border-radius: 4px; cursor: pointer; text-align: center;
+    }
+    .ftype-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* FX row */
+    .fx-section { margin-bottom: 8px; }
+    .fx-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .fx-head .lbl { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; flex: 1; }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════ HEADER ════════════════════════════ -->
+<header class="synth-header">
+  <div class="synth-title">
+    PULSE KEYS <span>●</span>
+    <small>Moog Edition</small>
+  </div>
+  <div class="preset-bar">
+    <button class="preset-nav" id="presetPrev" title="Previous preset">&#8249;</button>
+    <span id="presetName">Init</span>
+    <button class="preset-nav" id="presetNext" title="Next preset">&#8250;</button>
+    <select id="presetSelect"></select>
+    <button class="btn-save" id="savePreset">Save</button>
+  </div>
+</header>
+
+<!-- ════════════════════════════ SYNTH PANELS ════════════════════════════ -->
+<div class="synth-body">
+
+  <!-- ── OSCILLATOR ── -->
+  <div class="synth-panel" id="panelOsc">
+    <div class="panel-title">Oscillator</div>
+
+    <div class="sec-label">OSC 1</div>
+    <div class="osc-row">
+      <span class="lbl">Wave</span>
+      <select id="osc1Wave" style="width:auto;flex:1;">
+        <option value="sawtooth">Saw</option>
+        <option value="square">Square</option>
+        <option value="triangle">Triangle</option>
+        <option value="sine">Sine</option>
+      </select>
+    </div>
+    <div class="knob-row">
+      <div class="knob-wrap" id="kw-osc1Oct"></div>
+      <div class="knob-wrap" id="kw-osc1Det"></div>
+      <div class="knob-wrap" id="kw-osc1Lvl"></div>
+    </div>
+
+    <div class="sec-label" style="display:flex;align-items:center;gap:5px;">
+      OSC 2 <button class="tog" id="tog-osc2">ON</button>
+    </div>
+    <div class="osc-row">
+      <span class="lbl">Wave</span>
+      <select id="osc2Wave" style="width:auto;flex:1;">
+        <option value="sawtooth">Saw</option>
+        <option value="square">Square</option>
+        <option value="triangle">Triangle</option>
+        <option value="sine">Sine</option>
+      </select>
+    </div>
+    <div class="knob-row">
+      <div class="knob-wrap" id="kw-osc2Det"></div>
+      <div class="knob-wrap" id="kw-osc2Lvl"></div>
+    </div>
+
+    <div class="sec-label" style="display:flex;align-items:center;gap:5px;">
+      Sub <button class="tog" id="tog-sub">ON</button>
+    </div>
+    <div class="osc-row">
+      <span class="lbl">Wave</span>
+      <select id="subWave" style="width:auto;flex:1;">
+        <option value="sine">Sine</option>
+        <option value="square">Square</option>
+        <option value="triangle">Triangle</option>
+      </select>
+    </div>
+    <div class="knob-row">
+      <div class="knob-wrap" id="kw-subLvl"></div>
+    </div>
+
+    <div class="sec-label" style="display:flex;align-items:center;gap:5px;">
+      Noise <button class="tog" id="tog-noise">ON</button>
+    </div>
+    <div class="knob-row">
+      <div class="knob-wrap" id="kw-noiseLvl"></div>
+    </div>
+  </div>
+
+  <!-- ── FILTER ── -->
+  <div class="synth-panel" id="panelFilter">
+    <div class="panel-title">Filter</div>
+    <div class="knob-row">
+      <div class="knob-wrap" id="kw-fCutoff"></div>
+      <div class="knob-wrap" id="kw-fRes"></div>
+      <div class="knob-wrap" id="kw-fDrive"></div>
+    </div>
+    <div class="sec-label">Key Track</div>
+    <select id="fKeyTrack">
+      <option value="0">Off</option>
+      <option value="0.33">33%</option>
+      <option value="0.67">67%</option>
+      <option value="1">100%</option>
+    </select>
+    <div class="sec-label">Env Amount</div>
+    <div class="knob-row">
+      <div class="knob-wrap" id="kw-fEnvAmt"></div>
+    </div>
+    <div class="sec-label">Type</div>
+    <div class="filter-types">
+      <button class="ftype-btn active" data-type="lowpass">LP</button>
+      <button class="ftype-btn" data-type="highpass">HP</button>
+      <button class="ftype-btn" data-type="bandpass">BP</button>
+      <button class="ftype-btn" data-type="notch">NT</button>
+    </div>
+  </div>
+
+  <!-- ── ENVELOPES ── -->
+  <div class="synth-panel" id="panelEnv">
+    <div class="panel-title">Envelopes</div>
+
+    <div class="sec-label">Filter Env (FENV)</div>
+    <div class="adsr-grid" id="fenvGrid">
+      <div class="adsr-row"><label>Atk</label><input type="range" id="fA" min="0" max="1" step="0.001" value="0.01"></div>
+      <div class="adsr-row"><label>Dec</label><input type="range" id="fD" min="0" max="1" step="0.001" value="0.3"></div>
+      <div class="adsr-row"><label>Sus</label><input type="range" id="fS" min="0" max="1" step="0.001" value="0.5"></div>
+      <div class="adsr-row"><label>Rel</label><input type="range" id="fR" min="0" max="1" step="0.001" value="0.4"></div>
+    </div>
+
+    <div class="sec-label" style="margin-top:8px;">Amp Env (AENV)</div>
+    <div class="adsr-grid" id="aenvGrid">
+      <div class="adsr-row"><label>Atk</label><input type="range" id="aA" min="0" max="1" step="0.001" value="0.005"></div>
+      <div class="adsr-row"><label>Dec</label><input type="range" id="aD" min="0" max="1" step="0.001" value="0.2"></div>
+      <div class="adsr-row"><label>Sus</label><input type="range" id="aS" min="0" max="1" step="0.001" value="0.7"></div>
+      <div class="adsr-row"><label>Rel</label><input type="range" id="aR" min="0" max="1" step="0.001" value="0.3"></div>
+    </div>
+  </div>
+
+  <!-- ── LFO ── -->
+  <div class="synth-panel" id="panelLfo">
+    <div class="panel-title">LFO + Mod</div>
+    <div class="knob-row">
+      <div class="knob-wrap" id="kw-lfoRate"></div>
+      <div class="knob-wrap" id="kw-lfoDepth"></div>
+    </div>
+    <div class="sec-label">Wave</div>
+    <select id="lfoWave">
+      <option value="sine">Sine</option>
+      <option value="triangle">Triangle</option>
+      <option value="square">Square</option>
+      <option value="sawtooth">Sawtooth</option>
+    </select>
+    <div class="sec-label">Target</div>
+    <select id="lfoTarget">
+      <option value="filter">Filter Cutoff</option>
+      <option value="pitch">Pitch</option>
+      <option value="amp">Amplitude</option>
+    </select>
+
+    <div class="sec-label" style="display:flex;align-items:center;gap:5px;margin-top:8px;">
+      Portamento <button class="tog" id="tog-porta">OFF</button>
+    </div>
+    <div class="knob-row">
+      <div class="knob-wrap" id="kw-portaTime"></div>
+    </div>
+    <div class="sec-label" style="margin-top:2px;">Legato <button class="tog" id="tog-legato" style="margin-left:4px;">OFF</button></div>
+
+    <div class="sec-label" style="display:flex;align-items:center;gap:5px;margin-top:8px;">
+      Unison <button class="tog" id="tog-unison">OFF</button>
+    </div>
+    <div class="sec-label">Voices</div>
+    <select id="uniVoices">
+      <option value="2">2</option>
+      <option value="3" selected>3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="7">7</option>
+    </select>
+    <div class="knob-row" style="margin-top:4px;">
+      <div class="knob-wrap" id="kw-uniSpread"></div>
+    </div>
+  </div>
+
+  <!-- ── EFFECTS ── -->
+  <div class="synth-panel" id="panelFx">
+    <div class="panel-title">Effects</div>
+
+    <!-- Drive -->
+    <div class="fx-section">
+      <div class="fx-head"><span class="lbl">Overdrive</span></div>
+      <div class="knob-row">
+        <div class="knob-wrap" id="kw-drive"></div>
+      </div>
+    </div>
+
+    <!-- Chorus -->
+    <div class="fx-section">
+      <div class="fx-head">
+        <span class="lbl">Chorus</span>
+        <button class="tog" id="tog-chorus">OFF</button>
+      </div>
+      <div class="knob-row">
+        <div class="knob-wrap" id="kw-chorusRate"></div>
+        <div class="knob-wrap" id="kw-chorusMix"></div>
+      </div>
+    </div>
+
+    <!-- Delay -->
+    <div class="fx-section">
+      <div class="fx-head">
+        <span class="lbl">Delay</span>
+        <button class="tog" id="tog-delay">OFF</button>
+      </div>
+      <div class="knob-row">
+        <div class="knob-wrap" id="kw-delayTime"></div>
+        <div class="knob-wrap" id="kw-delayFb"></div>
+        <div class="knob-wrap" id="kw-delayMix"></div>
+      </div>
+    </div>
+
+    <!-- Reverb -->
+    <div class="fx-section">
+      <div class="fx-head">
+        <span class="lbl">Reverb</span>
+        <button class="tog" id="tog-reverb">OFF</button>
+      </div>
+      <div class="knob-row">
+        <div class="knob-wrap" id="kw-reverbMix"></div>
+        <div class="knob-wrap" id="kw-reverbSize"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end synth-body -->
+
+<!-- ════════════════════════════ VIZ + STATUS ════════════════════════════ -->
+<div class="viz-bar">
+  <canvas id="osc-canvas" width="800" height="56"></canvas>
+</div>
+
+<!-- Status / controls strip -->
+<div class="ctrl-strip">
+  <button class="ctrl-btn primary" id="startAudio">Start Audio</button>
+  <span class="status-dot" id="audioDot"></span>
+  <strong id="audioStatus" style="font-size:0.72rem;">Waiting</strong>
+  &nbsp;|&nbsp;
+  <button class="ctrl-btn secondary" id="midiEnable">MIDI</button>
+  <span id="midiStatus" style="font-size:0.72rem;color:var(--muted);">Off</span>
+  &nbsp;|&nbsp;
+  <label>Out:</label>
+  <select id="midiOutput" style="width:130px;background:var(--surface);color:var(--ink);border:1px solid var(--panel-border);border-radius:5px;padding:3px 5px;font-size:0.72rem;">
+    <option value="">None</option>
+  </select>
+  &nbsp;|&nbsp;
+  <label>Vol:</label>
+  <input id="volume" type="range" min="0" max="100" value="70" style="width:70px;accent-color:var(--accent);">
+  &nbsp;|&nbsp;
+  <button class="ctrl-btn" id="octaveDown">Oct −</button>
+  <span id="octaveReadout">C4 – C6</span>
+  <button class="ctrl-btn" id="octaveUp">Oct +</button>
+  &nbsp;|&nbsp;
+  <button class="ctrl-btn" id="sustain">Sustain Off</button>
+  &nbsp;|&nbsp;
+  <span id="noteStatus" style="font-size:0.72rem;color:var(--muted);">No note</span>
+</div>
+
+<!-- ════════════════════════════ KEYBOARD ════════════════════════════ -->
+<div class="keyboard-shell">
+  <div id="keyboard" class="keyboard" aria-label="Interactive piano keyboard">
+    <div id="whiteKeys" class="white-keys"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ SCRIPT ════════════════════════════ -->
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════
+   CONSTANTS & NOTE DATA
+═══════════════════════════════════════════════ */
+const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+// Computer keyboard → semitone-offset mapping (index = offset from baseMidi)
+// z=0 s=1 x=2 d=3 c=4 v=5 g=6 b=7 h=8 n=9 j=10 m=11
+// ,=12 l=13 .=14 ;=15 /=16 q=17 2=18 w=19 3=20 e=21 r=22 5=23
+const KB_MAP = ["z","s","x","d","c","v","g","b","h","n","j","m",",","l",".",";","/","q","2","w","3","e","r","5"];
+const blackSet = new Set([1,3,6,8,10]);
+
+/* ═══════════════════════════════════════════════
+   SYNTH PARAMS
+═══════════════════════════════════════════════ */
+const synthParams = {
+  // OSC1
+  osc1Wave: 'sawtooth', osc1Oct: 0, osc1Det: 0, osc1Lvl: 0.8,
+  // OSC2
+  osc2On: false, osc2Wave: 'sawtooth', osc2Det: 7, osc2Lvl: 0.5,
+  // Sub
+  subOn: false, subWave: 'sine', subLvl: 0.4,
+  // Noise
+  noiseOn: false, noiseLvl: 0.2,
+  // Filter
+  fCutoff: 2000, fRes: 0.3, fDrive: 1.0, fKeyTrack: 0,
+  fType: 'lowpass', fEnvAmt: 0.5,
+  // Filter env
+  fA: 0.01, fD: 0.3, fS: 0.5, fR: 0.4,
+  // Amp env
+  aA: 0.005, aD: 0.2, aS: 0.7, aR: 0.3,
+  // LFO
+  lfoRate: 3, lfoDepth: 0, lfoWave: 'sine', lfoTarget: 'filter',
+  // Porta
+  portaOn: false, portaTime: 0.08, legatoOn: false,
+  // Unison
+  uniOn: false, uniVoices: 3, uniSpread: 15,
+  // FX
+  drive: 1.0,
+  chorusOn: false, chorusRate: 1.2, chorusMix: 0.4,
+  delayOn: false, delayTime: 0.35, delayFb: 0.4, delayMix: 0.3,
+  reverbOn: false, reverbMix: 0.35, reverbSize: 0.6
+};
+
+/* ═══════════════════════════════════════════════
+   FACTORY PRESETS
+═══════════════════════════════════════════════ */
+const FACTORY_PRESETS = [
+  { name: 'Init', ...JSON.parse(JSON.stringify(synthParams)) },
+  {
+    name: 'Bass Lead',
+    osc1Wave:'sawtooth', osc1Oct:0, osc1Det:0, osc1Lvl:0.9,
+    osc2On:true, osc2Wave:'square', osc2Det:-5, osc2Lvl:0.4,
+    subOn:true, subWave:'sine', subLvl:0.6,
+    noiseOn:false, noiseLvl:0.1,
+    fCutoff:600, fRes:0.5, fDrive:1.8, fKeyTrack:0.33,
+    fType:'lowpass', fEnvAmt:0.7,
+    fA:0.005, fD:0.25, fS:0.3, fR:0.3,
+    aA:0.005, aD:0.15, aS:0.8, aR:0.2,
+    lfoRate:0.5, lfoDepth:0.02, lfoWave:'sine', lfoTarget:'pitch',
+    portaOn:true, portaTime:0.06, legatoOn:true,
+    uniOn:false, uniVoices:3, uniSpread:10,
+    drive:2.5,
+    chorusOn:false, chorusRate:0.8, chorusMix:0.3,
+    delayOn:false, delayTime:0.3, delayFb:0.3, delayMix:0.2,
+    reverbOn:false, reverbMix:0.2, reverbSize:0.4
+  },
+  {
+    name: 'Pad Swells',
+    osc1Wave:'sawtooth', osc1Oct:0, osc1Det:4, osc1Lvl:0.7,
+    osc2On:true, osc2Wave:'sawtooth', osc2Det:-4, osc2Lvl:0.7,
+    subOn:false, subWave:'sine', subLvl:0.2,
+    noiseOn:false, noiseLvl:0.05,
+    fCutoff:800, fRes:0.2, fDrive:1.0, fKeyTrack:0.33,
+    fType:'lowpass', fEnvAmt:0.5,
+    fA:1.2, fD:0.6, fS:0.7, fR:1.5,
+    aA:1.5, aD:0.4, aS:0.85, aR:2.0,
+    lfoRate:0.4, lfoDepth:0.04, lfoWave:'sine', lfoTarget:'filter',
+    portaOn:false, portaTime:0.05, legatoOn:false,
+    uniOn:true, uniVoices:5, uniSpread:18,
+    drive:1.0,
+    chorusOn:true, chorusRate:0.7, chorusMix:0.5,
+    delayOn:true, delayTime:0.45, delayFb:0.4, delayMix:0.25,
+    reverbOn:true, reverbMix:0.5, reverbSize:0.8
+  },
+  {
+    name: 'Arp Pluck',
+    osc1Wave:'sawtooth', osc1Oct:0, osc1Det:0, osc1Lvl:0.8,
+    osc2On:false, osc2Wave:'triangle', osc2Det:0, osc2Lvl:0.3,
+    subOn:false, subWave:'sine', subLvl:0.1,
+    noiseOn:true, noiseLvl:0.08,
+    fCutoff:3000, fRes:0.6, fDrive:1.2, fKeyTrack:0.67,
+    fType:'lowpass', fEnvAmt:0.8,
+    fA:0.001, fD:0.18, fS:0.1, fR:0.2,
+    aA:0.001, aD:0.3, aS:0.0, aR:0.25,
+    lfoRate:6, lfoDepth:0.01, lfoWave:'triangle', lfoTarget:'pitch',
+    portaOn:false, portaTime:0.03, legatoOn:false,
+    uniOn:false, uniVoices:2, uniSpread:8,
+    drive:1.5,
+    chorusOn:false, chorusRate:1.5, chorusMix:0.3,
+    delayOn:true, delayTime:0.25, delayFb:0.55, delayMix:0.35,
+    reverbOn:true, reverbMix:0.25, reverbSize:0.5
+  },
+  {
+    name: 'Lead Scream',
+    osc1Wave:'square', osc1Oct:0, osc1Det:0, osc1Lvl:0.85,
+    osc2On:true, osc2Wave:'sawtooth', osc2Det:3, osc2Lvl:0.5,
+    subOn:false, subWave:'sine', subLvl:0.2,
+    noiseOn:false, noiseLvl:0.05,
+    fCutoff:4000, fRes:0.7, fDrive:2.5, fKeyTrack:0.33,
+    fType:'lowpass', fEnvAmt:0.4,
+    fA:0.01, fD:0.2, fS:0.6, fR:0.3,
+    aA:0.005, aD:0.1, aS:0.9, aR:0.15,
+    lfoRate:5, lfoDepth:0.06, lfoWave:'sine', lfoTarget:'pitch',
+    portaOn:true, portaTime:0.04, legatoOn:true,
+    uniOn:false, uniVoices:3, uniSpread:12,
+    drive:3.5,
+    chorusOn:true, chorusRate:2.0, chorusMix:0.35,
+    delayOn:false, delayTime:0.3, delayFb:0.3, delayMix:0.2,
+    reverbOn:false, reverbMix:0.2, reverbSize:0.4
+  },
+  {
+    name: 'Warm Strings',
+    osc1Wave:'sawtooth', osc1Oct:0, osc1Det:6, osc1Lvl:0.75,
+    osc2On:true, osc2Wave:'sawtooth', osc2Det:-6, osc2Lvl:0.75,
+    subOn:false, subWave:'sine', subLvl:0.15,
+    noiseOn:false, noiseLvl:0.05,
+    fCutoff:1500, fRes:0.15, fDrive:1.0, fKeyTrack:0.67,
+    fType:'lowpass', fEnvAmt:0.2,
+    fA:0.5, fD:0.4, fS:0.8, fR:0.8,
+    aA:0.4, aD:0.3, aS:0.9, aR:0.9,
+    lfoRate:5, lfoDepth:0.02, lfoWave:'sine', lfoTarget:'pitch',
+    portaOn:false, portaTime:0.05, legatoOn:false,
+    uniOn:true, uniVoices:7, uniSpread:22,
+    drive:1.0,
+    chorusOn:true, chorusRate:0.5, chorusMix:0.6,
+    delayOn:false, delayTime:0.4, delayFb:0.3, delayMix:0.2,
+    reverbOn:true, reverbMix:0.6, reverbSize:0.9
+  },
+  {
+    name: 'Acid House',
+    osc1Wave:'sawtooth', osc1Oct:0, osc1Det:0, osc1Lvl:0.95,
+    osc2On:false, osc2Wave:'sawtooth', osc2Det:0, osc2Lvl:0.3,
+    subOn:false, subWave:'sine', subLvl:0.3,
+    noiseOn:false, noiseLvl:0.0,
+    fCutoff:500, fRes:3.2, fDrive:1.5, fKeyTrack:0,
+    fType:'lowpass', fEnvAmt:0.9,
+    fA:0.002, fD:0.15, fS:0.0, fR:0.1,
+    aA:0.002, aD:0.2, aS:0.0, aR:0.12,
+    lfoRate:0.01, lfoDepth:0, lfoWave:'sine', lfoTarget:'filter',
+    portaOn:true, portaTime:0.02, legatoOn:true,
+    uniOn:false, uniVoices:2, uniSpread:8,
+    drive:2.0,
+    chorusOn:false, chorusRate:1.0, chorusMix:0.3,
+    delayOn:false, delayTime:0.3, delayFb:0.4, delayMix:0.2,
+    reverbOn:false, reverbMix:0.2, reverbSize:0.4
+  },
+  {
+    name: 'Organ-ish',
+    osc1Wave:'square', osc1Oct:0, osc1Det:0, osc1Lvl:0.7,
+    osc2On:true, osc2Wave:'square', osc2Det:1200, osc2Lvl:0.5,
+    subOn:true, subWave:'square', subLvl:0.35,
+    noiseOn:false, noiseLvl:0.0,
+    fCutoff:6000, fRes:0.1, fDrive:1.0, fKeyTrack:0,
+    fType:'lowpass', fEnvAmt:0.0,
+    fA:0.005, fD:0.01, fS:1.0, fR:0.02,
+    aA:0.005, aD:0.01, aS:1.0, aR:0.03,
+    lfoRate:6, lfoDepth:0.03, lfoWave:'sine', lfoTarget:'pitch',
+    portaOn:false, portaTime:0.02, legatoOn:false,
+    uniOn:false, uniVoices:2, uniSpread:5,
+    drive:1.2,
+    chorusOn:true, chorusRate:3.0, chorusMix:0.4,
+    delayOn:false, delayTime:0.3, delayFb:0.3, delayMix:0.2,
+    reverbOn:true, reverbMix:0.3, reverbSize:0.5
+  },
+  {
+    name: 'Kick Drum',
+    osc1Wave:'sine', osc1Oct:0, osc1Det:0, osc1Lvl:0.9,
+    osc2On:false, osc2Wave:'sine', osc2Det:0, osc2Lvl:0.0,
+    subOn:false, subWave:'sine', subLvl:0.0,
+    noiseOn:true, noiseLvl:0.15,
+    fCutoff:300, fRes:0.4, fDrive:3.0, fKeyTrack:0,
+    fType:'lowpass', fEnvAmt:0.95,
+    fA:0.001, fD:0.12, fS:0.0, fR:0.08,
+    aA:0.001, aD:0.35, aS:0.0, aR:0.15,
+    lfoRate:0.01, lfoDepth:0, lfoWave:'sine', lfoTarget:'filter',
+    portaOn:false, portaTime:0.01, legatoOn:false,
+    uniOn:false, uniVoices:2, uniSpread:5,
+    drive:4.0,
+    chorusOn:false, chorusRate:1.0, chorusMix:0.2,
+    delayOn:false, delayTime:0.2, delayFb:0.2, delayMix:0.1,
+    reverbOn:false, reverbMix:0.15, reverbSize:0.3
+  },
+  {
+    name: 'Soft Bell',
+    osc1Wave:'triangle', osc1Oct:1, osc1Det:0, osc1Lvl:0.8,
+    osc2On:true, osc2Wave:'sine', osc2Det:702, osc2Lvl:0.5,
+    subOn:false, subWave:'sine', subLvl:0.1,
+    noiseOn:false, noiseLvl:0.02,
+    fCutoff:8000, fRes:0.2, fDrive:1.0, fKeyTrack:1,
+    fType:'lowpass', fEnvAmt:0.1,
+    fA:0.001, fD:0.5, fS:0.2, fR:1.0,
+    aA:0.001, aD:0.8, aS:0.1, aR:1.5,
+    lfoRate:3, lfoDepth:0.01, lfoWave:'sine', lfoTarget:'pitch',
+    portaOn:false, portaTime:0.03, legatoOn:false,
+    uniOn:false, uniVoices:2, uniSpread:6,
+    drive:1.0,
+    chorusOn:false, chorusRate:1.0, chorusMix:0.3,
+    delayOn:true, delayTime:0.5, delayFb:0.35, delayMix:0.4,
+    reverbOn:true, reverbMix:0.55, reverbSize:0.85
+  },
+  {
+    name: 'Vintage Keys',
+    osc1Wave:'square', osc1Oct:0, osc1Det:0, osc1Lvl:0.7,
+    osc2On:true, osc2Wave:'sawtooth', osc2Det:5, osc2Lvl:0.4,
+    subOn:true, subWave:'sine', subLvl:0.25,
+    noiseOn:false, noiseLvl:0.03,
+    fCutoff:2500, fRes:0.3, fDrive:1.3, fKeyTrack:0.33,
+    fType:'lowpass', fEnvAmt:0.3,
+    fA:0.01, fD:0.4, fS:0.5, fR:0.5,
+    aA:0.01, aD:0.5, aS:0.6, aR:0.6,
+    lfoRate:4, lfoDepth:0.02, lfoWave:'sine', lfoTarget:'pitch',
+    portaOn:false, portaTime:0.04, legatoOn:false,
+    uniOn:false, uniVoices:3, uniSpread:12,
+    drive:1.5,
+    chorusOn:true, chorusRate:1.0, chorusMix:0.35,
+    delayOn:true, delayTime:0.38, delayFb:0.35, delayMix:0.2,
+    reverbOn:true, reverbMix:0.3, reverbSize:0.55
+  },
+  {
+    name: 'Deep Space',
+    osc1Wave:'sawtooth', osc1Oct:-1, osc1Det:0, osc1Lvl:0.6,
+    osc2On:true, osc2Wave:'sine', osc2Det:600, osc2Lvl:0.4,
+    subOn:true, subWave:'sine', subLvl:0.8,
+    noiseOn:true, noiseLvl:0.12,
+    fCutoff:400, fRes:0.6, fDrive:1.0, fKeyTrack:0,
+    fType:'lowpass', fEnvAmt:0.6,
+    fA:2.0, fD:1.0, fS:0.4, fR:3.0,
+    aA:2.5, aD:0.8, aS:0.5, aR:4.0,
+    lfoRate:0.15, lfoDepth:0.15, lfoWave:'sine', lfoTarget:'filter',
+    portaOn:true, portaTime:0.4, legatoOn:true,
+    uniOn:true, uniVoices:5, uniSpread:30,
+    drive:1.2,
+    chorusOn:true, chorusRate:0.3, chorusMix:0.7,
+    delayOn:true, delayTime:0.6, delayFb:0.5, delayMix:0.45,
+    reverbOn:true, reverbMix:0.7, reverbSize:1.0
+  }
+];
+
+let userPresets = JSON.parse(localStorage.getItem('pk-presets') || '[]');
+let allPresets = [...FACTORY_PRESETS, ...userPresets];
+let currentPresetIndex = 0;
+
+/* ═══════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════ */
+const state = {
+  audioContext: null,
+  masterGain: null,
+  midiAccess: null,
+  midiOutput: null,
+  activeVoices: new Map(),   // midi -> voice object
+  heldNotes: new Set(),
+  sustainedNotes: new Set(),
+  keyElements: new Map(),
+  pointerMap: new Map(),
+  volume: 0.7,
+  waveform: 'sawtooth',
+  sustain: false,
+  baseMidi: 60,
+  // Extended
+  noiseBuffer: null,
+  lfoNode: null,
+  lfoModGain: null,
+  lfoAmpGain: null,
+  analyser: null,
+  fx: null,
+  lastHz: null,
+  workletReady: false,
+  oscAnimId: null,
+  reverbBuffer: null
+};
+
+/* ═══════════════════════════════════════════════
+   DOM REFS
+═══════════════════════════════════════════════ */
+const audioStatusEl = document.getElementById('audioStatus');
+const midiStatusEl  = document.getElementById('midiStatus');
+const noteStatusEl  = document.getElementById('noteStatus');
+const audioDotEl    = document.getElementById('audioDot');
+const sustainBtn    = document.getElementById('sustain');
+const octaveReadout = document.getElementById('octaveReadout');
+const midiOutputSel = document.getElementById('midiOutput');
+const whiteKeysEl   = document.getElementById('whiteKeys');
+const keyboardEl    = document.getElementById('keyboard');
+const oscCanvas     = document.getElementById('osc-canvas');
+
+/* ═══════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════ */
+function midiToLabel(midi) {
+  return noteNames[midi % 12] + (Math.floor(midi / 12) - 1);
+}
+function midiToHz(midi) {
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+function updateRangeLabel() {
+  octaveReadout.textContent = midiToLabel(state.baseMidi) + ' – ' + midiToLabel(state.baseMidi + 24);
+}
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+/* ═══════════════════════════════════════════════
+   KNOB FACTORY
+═══════════════════════════════════════════════ */
+function makeKnob(containerId, opts) {
+  const container = typeof containerId === 'string'
+    ? document.getElementById(containerId)
+    : containerId;
+  if (!container) return null;
+  container.innerHTML = '';
+
+  const knob = document.createElement('div');
+  knob.className = 'knob';
+  const dot = document.createElement('div');
+  dot.className = 'knob-dot';
+  knob.appendChild(dot);
+
+  const valLabel = document.createElement('span');
+  valLabel.className = 'knob-val';
+
+  const nameLabel = document.createElement('div');
+  nameLabel.className = 'knob-label';
+  nameLabel.textContent = opts.label || '';
+
+  container.appendChild(knob);
+  container.appendChild(valLabel);
+  container.appendChild(nameLabel);
+
+  let norm = 0;
+
+  function toNorm(v) {
+    if (opts.logScale) {
+      const safeMin = opts.min <= 0 ? 0.001 : opts.min;
+      const safeMax = opts.max;
+      const safeV   = clamp(v, safeMin, safeMax);
+      return Math.log(safeV / safeMin) / Math.log(safeMax / safeMin);
+    }
+    return (v - opts.min) / (opts.max - opts.min);
+  }
+
+  function fromNorm(n) {
+    if (opts.logScale) {
+      const safeMin = opts.min <= 0 ? 0.001 : opts.min;
+      return safeMin * Math.pow(opts.max / safeMin, n);
+    }
+    return opts.min + n * (opts.max - opts.min);
+  }
+
+  function formatVal(v) {
+    if (opts.unit === 'Hz') return v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v)+'Hz';
+    if (opts.unit === 's')  return v >= 1 ? v.toFixed(2)+'s' : Math.round(v*1000)+'ms';
+    if (opts.unit === '%')  return Math.round(v*100)+'%';
+    if (opts.unit === 'dB') return v.toFixed(1)+'dB';
+    if (opts.unit === 'ct') return Math.round(v)+'ct';
+    if (opts.unit === 'st') return (v > 0 ? '+' : '') + Math.round(v);
+    const dec = opts.decimals !== undefined ? opts.decimals : 2;
+    return parseFloat(v.toFixed(dec)).toString();
+  }
+
+  function updateDisplay(n, fireChange) {
+    norm = clamp(n, 0, 1);
+    const angle = -135 + norm * 270;
+    dot.style.transform = `rotate(${angle}deg)`;
+    const step = opts.step || 0.001;
+    let val = fromNorm(norm);
+    val = Math.round(val / step) * step;
+    valLabel.textContent = formatVal(val);
+    if (fireChange && opts.onChange) opts.onChange(val);
+  }
+
+  let startY, startNorm;
+  knob.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    startY = e.clientY;
+    startNorm = norm;
+    knob.setPointerCapture(e.pointerId);
+  });
+  knob.addEventListener('pointermove', e => {
+    if (!knob.hasPointerCapture(e.pointerId)) return;
+    updateDisplay(startNorm + (startY - e.clientY) / 180, true);
+  });
+  knob.addEventListener('pointerup', e => {
+    if (knob.hasPointerCapture(e.pointerId)) knob.releasePointerCapture(e.pointerId);
+  });
+  knob.addEventListener('pointercancel', e => {
+    if (knob.hasPointerCapture(e.pointerId)) knob.releasePointerCapture(e.pointerId);
+  });
+  knob.addEventListener('dblclick', () => {
+    updateDisplay(toNorm(opts.value), true);
+  });
+
+  // init
+  updateDisplay(toNorm(opts.value), false);
+
+  return {
+    el: knob,
+    setValue(v) { updateDisplay(toNorm(v), false); },
+    getValue() { return fromNorm(norm); }
+  };
+}
+
+/* ═══════════════════════════════════════════════
+   KNOB INSTANCES (populated after DOM ready)
+═══════════════════════════════════════════════ */
+const knobs = {};
+
+function buildKnobs() {
+  knobs.osc1Oct  = makeKnob('kw-osc1Oct',  { label:'Oct',   min:-2,   max:2,     value:synthParams.osc1Oct,   step:1,    unit:'st',  onChange: v => { synthParams.osc1Oct  = Math.round(v); } });
+  knobs.osc1Det  = makeKnob('kw-osc1Det',  { label:'Det',   min:-50,  max:50,    value:synthParams.osc1Det,   step:1,    unit:'ct',  onChange: v => { synthParams.osc1Det  = v; } });
+  knobs.osc1Lvl  = makeKnob('kw-osc1Lvl',  { label:'Lvl',   min:0,    max:1,     value:synthParams.osc1Lvl,   step:0.01, unit:'%',   onChange: v => { synthParams.osc1Lvl  = v; } });
+  knobs.osc2Det  = makeKnob('kw-osc2Det',  { label:'Det',   min:-1200,max:1200,  value:synthParams.osc2Det,   step:1,    unit:'ct',  onChange: v => { synthParams.osc2Det  = v; } });
+  knobs.osc2Lvl  = makeKnob('kw-osc2Lvl',  { label:'Lvl',   min:0,    max:1,     value:synthParams.osc2Lvl,   step:0.01, unit:'%',   onChange: v => { synthParams.osc2Lvl  = v; } });
+  knobs.subLvl   = makeKnob('kw-subLvl',   { label:'Lvl',   min:0,    max:1,     value:synthParams.subLvl,    step:0.01, unit:'%',   onChange: v => { synthParams.subLvl   = v; } });
+  knobs.noiseLvl = makeKnob('kw-noiseLvl', { label:'Lvl',   min:0,    max:1,     value:synthParams.noiseLvl,  step:0.01, unit:'%',   onChange: v => { synthParams.noiseLvl = v; } });
+
+  knobs.fCutoff  = makeKnob('kw-fCutoff',  { label:'Cutoff',min:20,   max:18000, value:synthParams.fCutoff,   step:1,    unit:'Hz',  logScale:true, onChange: v => { synthParams.fCutoff = v; updateFilterOnAllVoices(); } });
+  knobs.fRes     = makeKnob('kw-fRes',     { label:'Res',   min:0,    max:3.9,   value:synthParams.fRes,      step:0.01, unit:'',    onChange: v => { synthParams.fRes    = v; updateFilterOnAllVoices(); } });
+  knobs.fDrive   = makeKnob('kw-fDrive',   { label:'Drive', min:1,    max:6,     value:synthParams.fDrive,    step:0.1,  unit:'',    onChange: v => { synthParams.fDrive  = v; updateFilterOnAllVoices(); } });
+  knobs.fEnvAmt  = makeKnob('kw-fEnvAmt',  { label:'Env Amt',min:0,   max:1,     value:synthParams.fEnvAmt,   step:0.01, unit:'%',   onChange: v => { synthParams.fEnvAmt = v; } });
+
+  knobs.lfoRate  = makeKnob('kw-lfoRate',  { label:'Rate',  min:0.01, max:20,    value:synthParams.lfoRate,   step:0.01, unit:'Hz',  logScale:true, onChange: v => { synthParams.lfoRate = v; if (state.lfoNode) state.lfoNode.frequency.value = v; } });
+  knobs.lfoDepth = makeKnob('kw-lfoDepth', { label:'Depth', min:0,    max:1,     value:synthParams.lfoDepth,  step:0.01, unit:'%',   onChange: v => { synthParams.lfoDepth = v; updateLFODepth(); } });
+
+  knobs.portaTime= makeKnob('kw-portaTime',{ label:'Time',  min:0.001,max:2,     value:synthParams.portaTime, step:0.001,unit:'s',   logScale:true, onChange: v => { synthParams.portaTime = v; } });
+  knobs.uniSpread= makeKnob('kw-uniSpread',{ label:'Spread',min:0,    max:50,    value:synthParams.uniSpread, step:1,    unit:'ct',  onChange: v => { synthParams.uniSpread = v; } });
+
+  knobs.drive    = makeKnob('kw-drive',    { label:'Drive', min:1,    max:8,     value:synthParams.drive,     step:0.1,  unit:'',    onChange: v => { synthParams.drive = v; updateDrive(); } });
+  knobs.chorusRate = makeKnob('kw-chorusRate',{ label:'Rate',min:0.1, max:8,     value:synthParams.chorusRate,step:0.1,  unit:'Hz',  logScale:true, onChange: v => { synthParams.chorusRate = v; updateChorus(); } });
+  knobs.chorusMix  = makeKnob('kw-chorusMix', { label:'Mix', min:0,   max:1,     value:synthParams.chorusMix, step:0.01, unit:'%',   onChange: v => { synthParams.chorusMix = v; updateChorus(); } });
+  knobs.delayTime  = makeKnob('kw-delayTime', { label:'Time',min:0.01,max:2,     value:synthParams.delayTime, step:0.01, unit:'s',   logScale:true, onChange: v => { synthParams.delayTime = v; updateDelay(); } });
+  knobs.delayFb    = makeKnob('kw-delayFb',   { label:'FB',  min:0,   max:0.95,  value:synthParams.delayFb,   step:0.01, unit:'%',   onChange: v => { synthParams.delayFb = v; updateDelay(); } });
+  knobs.delayMix   = makeKnob('kw-delayMix',  { label:'Mix', min:0,   max:1,     value:synthParams.delayMix,  step:0.01, unit:'%',   onChange: v => { synthParams.delayMix = v; updateDelay(); } });
+  knobs.reverbMix  = makeKnob('kw-reverbMix', { label:'Mix', min:0,   max:1,     value:synthParams.reverbMix, step:0.01, unit:'%',   onChange: v => { synthParams.reverbMix = v; updateReverb(); } });
+  knobs.reverbSize = makeKnob('kw-reverbSize',{ label:'Size',min:0.1, max:1,     value:synthParams.reverbSize,step:0.01, unit:'%',   onChange: v => { synthParams.reverbSize = v; if (state.audioContext) buildReverbBuffer(); } });
+}
+
+/* ═══════════════════════════════════════════════
+   TOGGLE + SELECT UI WIRING
+═══════════════════════════════════════════════ */
+function togSetup(id, key, cb) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('on', !!synthParams[key]);
+  el.textContent = synthParams[key] ? 'ON' : 'OFF';
+  el.addEventListener('click', () => {
+    synthParams[key] = !synthParams[key];
+    el.classList.toggle('on', synthParams[key]);
+    el.textContent = synthParams[key] ? 'ON' : 'OFF';
+    if (cb) cb(synthParams[key]);
+  });
+}
+
+function selSetup(id, key, cb) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = synthParams[key];
+  el.addEventListener('change', () => {
+    synthParams[key] = el.value;
+    if (cb) cb(el.value);
+  });
+}
+
+function adsrSetup(id, key) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = synthParams[key];
+  el.addEventListener('input', () => { synthParams[key] = parseFloat(el.value); });
+}
+
+function buildUIWiring() {
+  togSetup('tog-osc2',  'osc2On');
+  togSetup('tog-sub',   'subOn');
+  togSetup('tog-noise', 'noiseOn');
+  togSetup('tog-porta', 'portaOn');
+  togSetup('tog-legato','legatoOn');
+  togSetup('tog-unison','uniOn');
+  togSetup('tog-chorus','chorusOn',  updateChorus);
+  togSetup('tog-delay', 'delayOn',   updateDelay);
+  togSetup('tog-reverb','reverbOn',  updateReverb);
+
+  selSetup('osc1Wave',  'osc1Wave');
+  selSetup('osc2Wave',  'osc2Wave');
+  selSetup('subWave',   'subWave');
+  selSetup('lfoWave',   'lfoWave', v => { if (state.lfoNode) state.lfoNode.type = v; });
+  selSetup('lfoTarget', 'lfoTarget', rewireLFO);
+  selSetup('uniVoices', 'uniVoices', v => { synthParams.uniVoices = parseInt(v); });
+  selSetup('fKeyTrack', 'fKeyTrack', v => { synthParams.fKeyTrack = parseFloat(v); });
+
+  // Filter type buttons
+  document.querySelectorAll('.ftype-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.type === synthParams.fType);
+    btn.addEventListener('click', () => {
+      synthParams.fType = btn.dataset.type;
+      document.querySelectorAll('.ftype-btn').forEach(b => b.classList.toggle('active', b.dataset.type === synthParams.fType));
+      updateFilterOnAllVoices();
+    });
+  });
+
+  adsrSetup('fA', 'fA'); adsrSetup('fD', 'fD'); adsrSetup('fS', 'fS'); adsrSetup('fR', 'fR');
+  adsrSetup('aA', 'aA'); adsrSetup('aD', 'aD'); adsrSetup('aS', 'aS'); adsrSetup('aR', 'aR');
+}
+
+/* ═══════════════════════════════════════════════
+   PRESET SYSTEM
+═══════════════════════════════════════════════ */
+function buildPresetSelect() {
+  const sel = document.getElementById('presetSelect');
+  sel.innerHTML = '';
+  allPresets.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = (i >= FACTORY_PRESETS.length ? '★ ' : '') + p.name;
+    sel.appendChild(opt);
+  });
+  sel.value = currentPresetIndex;
+}
+
+function applyPreset(idx) {
+  currentPresetIndex = clamp(idx, 0, allPresets.length - 1);
+  const p = allPresets[currentPresetIndex];
+  if (!p) return;
+  const defaults = FACTORY_PRESETS[0];
+  Object.assign(synthParams, defaults, p);
+  document.getElementById('presetName').textContent = p.name;
+  document.getElementById('presetSelect').value = currentPresetIndex;
+  updateAllUI();
+  syncFX();
+  if (state.audioContext) {
+    if (state.lfoNode) state.lfoNode.frequency.value = synthParams.lfoRate;
+    updateLFODepth();
+  }
+}
+
+function updateAllUI() {
+  // Knobs
+  if (knobs.osc1Oct)   knobs.osc1Oct.setValue(synthParams.osc1Oct);
+  if (knobs.osc1Det)   knobs.osc1Det.setValue(synthParams.osc1Det);
+  if (knobs.osc1Lvl)   knobs.osc1Lvl.setValue(synthParams.osc1Lvl);
+  if (knobs.osc2Det)   knobs.osc2Det.setValue(synthParams.osc2Det);
+  if (knobs.osc2Lvl)   knobs.osc2Lvl.setValue(synthParams.osc2Lvl);
+  if (knobs.subLvl)    knobs.subLvl.setValue(synthParams.subLvl);
+  if (knobs.noiseLvl)  knobs.noiseLvl.setValue(synthParams.noiseLvl);
+  if (knobs.fCutoff)   knobs.fCutoff.setValue(synthParams.fCutoff);
+  if (knobs.fRes)      knobs.fRes.setValue(synthParams.fRes);
+  if (knobs.fDrive)    knobs.fDrive.setValue(synthParams.fDrive);
+  if (knobs.fEnvAmt)   knobs.fEnvAmt.setValue(synthParams.fEnvAmt);
+  if (knobs.lfoRate)   knobs.lfoRate.setValue(synthParams.lfoRate);
+  if (knobs.lfoDepth)  knobs.lfoDepth.setValue(synthParams.lfoDepth);
+  if (knobs.portaTime) knobs.portaTime.setValue(synthParams.portaTime);
+  if (knobs.uniSpread) knobs.uniSpread.setValue(synthParams.uniSpread);
+  if (knobs.drive)     knobs.drive.setValue(synthParams.drive);
+  if (knobs.chorusRate) knobs.chorusRate.setValue(synthParams.chorusRate);
+  if (knobs.chorusMix)  knobs.chorusMix.setValue(synthParams.chorusMix);
+  if (knobs.delayTime)  knobs.delayTime.setValue(synthParams.delayTime);
+  if (knobs.delayFb)    knobs.delayFb.setValue(synthParams.delayFb);
+  if (knobs.delayMix)   knobs.delayMix.setValue(synthParams.delayMix);
+  if (knobs.reverbMix)  knobs.reverbMix.setValue(synthParams.reverbMix);
+  if (knobs.reverbSize) knobs.reverbSize.setValue(synthParams.reverbSize);
+
+  // Selects
+  ['osc1Wave','osc2Wave','subWave','lfoWave','lfoTarget','uniVoices'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = String(synthParams[id]);
+  });
+  document.getElementById('fKeyTrack').value = String(synthParams.fKeyTrack);
+
+  // Filter type buttons
+  document.querySelectorAll('.ftype-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.type === synthParams.fType));
+
+  // Toggles
+  ['tog-osc2','tog-sub','tog-noise','tog-porta','tog-legato','tog-unison','tog-chorus','tog-delay','tog-reverb'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const key = {
+      'tog-osc2':'osc2On','tog-sub':'subOn','tog-noise':'noiseOn',
+      'tog-porta':'portaOn','tog-legato':'legatoOn','tog-unison':'uniOn',
+      'tog-chorus':'chorusOn','tog-delay':'delayOn','tog-reverb':'reverbOn'
+    }[id];
+    el.classList.toggle('on', !!synthParams[key]);
+    el.textContent = synthParams[key] ? 'ON' : 'OFF';
+  });
+
+  // ADSR sliders
+  ['fA','fD','fS','fR','aA','aD','aS','aR'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = synthParams[id];
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   AUDIOWORKLET — MOOG LADDER FILTER
+═══════════════════════════════════════════════ */
+const WORKLET_CODE = `
+class MoogLadderProcessor extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [
+      { name: 'cutoff',    defaultValue: 1000, minValue: 20,  maxValue: 20000, automationRate: 'a-rate' },
+      { name: 'resonance', defaultValue: 0.3,  minValue: 0,   maxValue: 4,     automationRate: 'a-rate' },
+      { name: 'drive',     defaultValue: 1.0,  minValue: 0.5, maxValue: 8,     automationRate: 'a-rate' }
+    ];
+  }
+  constructor() {
+    super();
+    // 4 one-pole filter stages
+    this._s = [0,0,0,0];
+    this._sRate = sampleRate;
+  }
+  static _tanh(x) {
+    if (x >  3) return 1;
+    if (x < -3) return -1;
+    const x2 = x * x;
+    return x * (27 + x2) / (27 + 9 * x2);
+  }
+  process(inputs, outputs, parameters) {
+    const input  = inputs[0];
+    const output = outputs[0];
+    if (!input || !input[0]) return true;
+    const inCh  = input[0];
+    const outCh = output[0];
+    const cutoffP = parameters.cutoff;
+    const resP    = parameters.resonance;
+    const driveP  = parameters.drive;
+    const tanh    = MoogLadderProcessor._tanh;
+    let [s0,s1,s2,s3] = this._s;
+
+    for (let i = 0; i < inCh.length; i++) {
+      const fc  = cutoffP.length > 1 ? cutoffP[i] : cutoffP[0];
+      const res = resP.length > 1    ? resP[i]    : resP[0];
+      const drv = driveP.length > 1  ? driveP[i]  : driveP[0];
+
+      const f  = Math.min(fc / (this._sRate * 0.5), 0.499) * Math.PI;
+      const g  = 0.9892 * f - 0.4342 * f*f + 0.1381 * f*f*f - 0.0202 * f*f*f*f;
+      const k  = res * (1.0029 + 0.0526*f - 0.0926*f*f + 0.0218*f*f*f);
+      const gComp = 0.5773503; // 1/sqrt(3)
+
+      const x  = inCh[i] * drv;
+      const u  = tanh(x - k * s3);
+      const s0n = s0 + g * (tanh(u)      - tanh(s0));
+      const s1n = s1 + g * (tanh(s0n)    - tanh(s1));
+      const s2n = s2 + g * (tanh(s1n)    - tanh(s2));
+      const s3n = s3 + g * (tanh(s2n)    - tanh(s3));
+      s0 = s0n; s1 = s1n; s2 = s2n; s3 = s3n;
+      outCh[i] = s3;
+    }
+
+    this._s = [s0,s1,s2,s3];
+    return true;
+  }
+}
+registerProcessor('moog-ladder', MoogLadderProcessor);
+`;
+
+async function loadWorklet(ctx) {
+  try {
+    const blob = new Blob([WORKLET_CODE], { type: 'application/javascript' });
+    const url  = URL.createObjectURL(blob);
+    await ctx.audioWorklet.addModule(url);
+    URL.revokeObjectURL(url);
+    state.workletReady = true;
+  } catch(e) {
+    console.warn('AudioWorklet failed, falling back to BiquadFilter:', e);
+    state.workletReady = false;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   NOISE BUFFER
+═══════════════════════════════════════════════ */
+function buildNoiseBuffer(ctx) {
+  const len = ctx.sampleRate * 2;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  state.noiseBuffer = buf;
+}
+
+/* ═══════════════════════════════════════════════
+   REVERB BUFFER (impulse response)
+═══════════════════════════════════════════════ */
+function buildReverbBuffer() {
+  if (!state.audioContext) return;
+  const ctx = state.audioContext;
+  const size = synthParams.reverbSize;
+  const dur  = 0.5 + size * 3.5;
+  const len  = Math.floor(ctx.sampleRate * dur);
+  const buf  = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      const env = Math.pow(1 - i / len, 1.5 + size);
+      d[i] = (Math.random() * 2 - 1) * env;
+    }
+  }
+  state.reverbBuffer = buf;
+  if (state.fx && state.fx.reverb) {
+    state.fx.reverb.buffer = buf;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   FX CHAIN
+═══════════════════════════════════════════════ */
+function makeDriveCurve(amount) {
+  const n = 256;
+  const curve = new Float32Array(n);
+  const k = amount <= 1 ? 0 : (amount - 1) * 80;
+  for (let i = 0; i < n; i++) {
+    const x = (i * 2) / n - 1;
+    curve[i] = k === 0 ? x : (Math.PI + k) * x / (Math.PI + k * Math.abs(x));
+  }
+  return curve;
+}
+
+function buildFXChain(ctx) {
+  // ── Drive waveshaper ──
+  const driveNode = ctx.createWaveShaper();
+  driveNode.curve = makeDriveCurve(synthParams.drive);
+  driveNode.oversample = '4x';
+
+  // ── Chorus: modulated delay + LFO ──
+  // maxDelayTime must exceed base (0.025 s) + LFO swing (0.008 s); 0.1 s gives headroom.
+  const chorusDelay = ctx.createDelay(0.1);
+  const chorusLFO   = ctx.createOscillator();
+  const chorusLFOG  = ctx.createGain();
+  const chorusWet   = ctx.createGain();
+  chorusDelay.delayTime.value = 0.025;
+  chorusLFO.frequency.value   = synthParams.chorusRate;
+  chorusLFO.type = 'sine';
+  // LFO modulates delayTime by +/-0.008 s -- comfortably within maxDelayTime
+  chorusLFOG.gain.value = 0.008;
+  // Wet starts at 0 when chorus is off; non-zero only when enabled
+  chorusWet.gain.value = synthParams.chorusOn ? synthParams.chorusMix : 0;
+  chorusLFO.connect(chorusLFOG);
+  chorusLFOG.connect(chorusDelay.delayTime);
+  // MUST call start() -- without it the LFO never oscillates and modulation is silent
+  chorusLFO.start();
+
+  // ── Delay ──
+  // maxDelayTime 4 s covers the full knob range (max 2 s)
+  const delayNode  = ctx.createDelay(4);
+  const delayFbG   = ctx.createGain();
+  const delayWet   = ctx.createGain();
+  // Clamp delayTime so it never reaches maxDelayTime (browser will throw)
+  delayNode.delayTime.value = clamp(synthParams.delayTime, 0, 3.99);
+  // Feedback hard-clamped to 0.95 -- prevents infinite/runaway feedback
+  delayFbG.gain.value = synthParams.delayOn ? clamp(synthParams.delayFb, 0, 0.95) : 0;
+  // Wet starts at 0 when delay is off
+  delayWet.gain.value = synthParams.delayOn ? synthParams.delayMix : 0;
+  // Feedback loop: delayNode output -> delayFbG -> back into delayNode input
+  delayNode.connect(delayFbG);
+  delayFbG.connect(delayNode);
+
+  // ── Reverb (ConvolverNode) ──
+  const reverbNode = ctx.createConvolver();
+  // Build stereo IR buffer first, then assign -- buffer must be set before audio flows
+  buildReverbBuffer();
+  reverbNode.buffer = state.reverbBuffer;
+  const reverbWet  = ctx.createGain();
+  // Wet starts at 0 when reverb is off
+  reverbWet.gain.value = synthParams.reverbOn ? synthParams.reverbMix : 0;
+
+  // ── Single shared dry gain ──
+  // One dry path into fxBus prevents the signal from being summed 3x.
+  // (The original code had chorus-dry, delay-dry and reverb-dry all feeding fxBus
+  //  independently, which tripled the dry level even with all FX off.)
+  const dryGain = ctx.createGain();
+  dryGain.gain.value = 1;
+
+  // ── FX bus ──
+  const fxBus = ctx.createGain();
+  // Slight attenuation compensates for up to 3 additive wet taps; keeps headroom
+  fxBus.gain.value = 0.7;
+
+  // ── Compressor ──
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -18;
+  comp.knee.value      = 10;
+  comp.ratio.value     = 4;
+  comp.attack.value    = 0.003;
+  comp.release.value   = 0.15;
+
+  // ── Analyser ──
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.7;
+  state.analyser = analyser;
+
+  // ── Complete signal graph ──
+  // masterGain -> driveNode -+- dryGain   ----> fxBus -> comp -> analyser -> dest
+  //                          +- chorusDelay -> chorusWet -+
+  //                          +- delayNode   -> delayWet  -+  (feedback loop on delayNode)
+  //                          +- reverbNode  -> reverbWet -+
+  state.masterGain.connect(driveNode);
+
+  // Dry (single shared path)
+  driveNode.connect(dryGain);
+  dryGain.connect(fxBus);
+
+  // Chorus wet path
+  driveNode.connect(chorusDelay);
+  chorusDelay.connect(chorusWet);
+  chorusWet.connect(fxBus);
+
+  // Delay wet path
+  driveNode.connect(delayNode);
+  delayNode.connect(delayWet);
+  delayWet.connect(fxBus);
+
+  // Reverb wet path
+  driveNode.connect(reverbNode);
+  reverbNode.connect(reverbWet);
+  reverbWet.connect(fxBus);
+
+  // Output chain
+  fxBus.connect(comp);
+  comp.connect(analyser);
+  analyser.connect(ctx.destination);
+
+  state.fx = {
+    drive: driveNode,
+    chorusDelay, chorusLFO, chorusLFOG, chorusWet,
+    delayNode, delayFbG, delayWet,
+    reverb: reverbNode, reverbWet,
+    dryGain, fxBus, comp, analyser
+  };
+}
+
+function updateDrive() {
+  if (!state.fx) return;
+  state.fx.drive.curve = makeDriveCurve(synthParams.drive);
+}
+
+function updateChorus() {
+  if (!state.fx) return;
+  const on  = synthParams.chorusOn;
+  // Toggle by zeroing wet gain -- no disconnects (avoids audio clicks)
+  state.fx.chorusWet.gain.value = on ? synthParams.chorusMix : 0;
+  state.fx.chorusLFO.frequency.value = synthParams.chorusRate;
+}
+
+function updateDelay() {
+  if (!state.fx) return;
+  const on = synthParams.delayOn;
+  // Clamp delayTime within maxDelayTime (4 s)
+  state.fx.delayNode.delayTime.value = clamp(synthParams.delayTime, 0, 3.99);
+  // Feedback clamped to 0.95 -- prevents runaway infinite feedback
+  state.fx.delayFbG.gain.value = on ? clamp(synthParams.delayFb, 0, 0.95) : 0;
+  // Toggle by zeroing wet gain -- no disconnects (avoids audio clicks)
+  state.fx.delayWet.gain.value = on ? synthParams.delayMix : 0;
+}
+
+function updateReverb() {
+  if (!state.fx) return;
+  // Toggle by zeroing wet gain -- no disconnects (avoids audio clicks)
+  state.fx.reverbWet.gain.value = synthParams.reverbOn ? synthParams.reverbMix : 0;
+}
+
+function syncFX() {
+  updateDrive();
+  updateChorus();
+  updateDelay();
+  updateReverb();
+}
+
+/* ═══════════════════════════════════════════════
+   LFO SYSTEM
+═══════════════════════════════════════════════ */
+function getLFODepthAbs() {
+  const d = synthParams.lfoDepth;
+  if (synthParams.lfoTarget === 'filter') return d * 4000;
+  if (synthParams.lfoTarget === 'pitch')  return d * 100;   // cents
+  if (synthParams.lfoTarget === 'amp')    return d * 0.5;
+  return d;
+}
+
+function buildLFO(ctx) {
+  const lfo  = ctx.createOscillator();
+  const modG = ctx.createGain();
+  const ampG = ctx.createGain();
+  lfo.type = synthParams.lfoWave;
+  lfo.frequency.value = synthParams.lfoRate;
+  modG.gain.value = getLFODepthAbs();
+  ampG.gain.value = 0; // amp modulation gain (for amp target)
+  lfo.connect(modG);
+  lfo.connect(ampG);
+  lfo.start();
+  state.lfoNode    = lfo;
+  state.lfoModGain = modG;
+  state.lfoAmpGain = ampG;
+}
+
+function updateLFODepth() {
+  if (!state.lfoModGain) return;
+  state.lfoModGain.gain.value = getLFODepthAbs();
+  if (state.lfoAmpGain) {
+    state.lfoAmpGain.gain.value = synthParams.lfoTarget === 'amp' ? synthParams.lfoDepth * 0.5 : 0;
+  }
+}
+
+function rewireLFO() {
+  // Update depth scaling for new target
+  updateLFODepth();
+  // Reconnect lfoModGain to correct parameter on all active voices
+  if (!state.lfoModGain) return;
+  state.activeVoices.forEach(voice => {
+    // Tear down all existing LFO connections for this voice using tracked list
+    if (voice.lfoConnectedDests) {
+      voice.lfoConnectedDests.forEach(({ node, dest }) => {
+        try { node.disconnect(dest); } catch(e){}
+      });
+    }
+    voice.lfoConnectedDests = [];
+
+    // Reconnect per new target (only if depth > 0)
+    if (synthParams.lfoDepth > 0) {
+      if (synthParams.lfoTarget === 'pitch') {
+        voice.oscs.forEach(o => {
+          state.lfoModGain.connect(o.osc.detune);
+          voice.lfoConnectedDests.push({ node: state.lfoModGain, dest: o.osc.detune });
+        });
+        voice.uniOscs.forEach(o => {
+          state.lfoModGain.connect(o.osc.detune);
+          voice.lfoConnectedDests.push({ node: state.lfoModGain, dest: o.osc.detune });
+        });
+      } else if (synthParams.lfoTarget === 'filter') {
+        if (voice.ladder && voice.ladder.parameters) {
+          const cutoffParam = voice.ladder.parameters.get('cutoff');
+          state.lfoModGain.connect(cutoffParam);
+          voice.lfoConnectedDests.push({ node: state.lfoModGain, dest: cutoffParam });
+        } else if (voice.biquad) {
+          state.lfoModGain.connect(voice.biquad.frequency);
+          voice.lfoConnectedDests.push({ node: state.lfoModGain, dest: voice.biquad.frequency });
+        }
+      } else if (synthParams.lfoTarget === 'amp') {
+        if (state.lfoAmpGain) {
+          state.lfoAmpGain.connect(voice.vcaGain.gain);
+          voice.lfoConnectedDests.push({ node: state.lfoAmpGain, dest: voice.vcaGain.gain });
+        }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   VOICE MANAGEMENT
+═══════════════════════════════════════════════ */
+function updateFilterOnAllVoices() {
+  state.activeVoices.forEach(voice => {
+    applyFilterParams(voice, voice.midi);
+  });
+}
+
+function applyFilterParams(voice, midi) {
+  if (!voice) return;
+  const now = state.audioContext.currentTime;
+  const baseHz = synthParams.fCutoff;
+  const keyOff = (midi - 60) * synthParams.fKeyTrack * (100/12); // cents of offset
+  const modHz  = baseHz * Math.pow(2, keyOff / 1200);
+  const clamped = clamp(modHz, 20, 18000);
+
+  if (voice.ladder && state.workletReady) {
+    voice.ladder.parameters.get('cutoff').setTargetAtTime(clamped, now, 0.005);
+    voice.ladder.parameters.get('resonance').setTargetAtTime(synthParams.fRes, now, 0.005);
+    voice.ladder.parameters.get('drive').setTargetAtTime(synthParams.fDrive, now, 0.005);
+    // Update typeFilter (post biquad) for filter type shaping
+    if (voice.typeFilter) {
+      voice.typeFilter.type = synthParams.fType === 'lowpass' ? 'allpass' : synthParams.fType;
+      voice.typeFilter.frequency.setTargetAtTime(clamped, now, 0.005);
+      voice.typeFilter.Q.setTargetAtTime(synthParams.fRes * 10, now, 0.005);
+    }
+  } else if (voice.biquad) {
+    voice.biquad.type = synthParams.fType;
+    voice.biquad.frequency.setTargetAtTime(clamped, now, 0.005);
+    voice.biquad.Q.setTargetAtTime(synthParams.fRes * 10, now, 0.005);
+  }
+}
+
+function adsrToTime(v, minT, maxT) {
+  // v in [0,1] → log-ish time in seconds
+  const t = minT * Math.pow(maxT / minT, v);
+  return Math.max(minT, t);
+}
+
+function playVoice(midi, velocity) {
+  if (!state.audioContext) return;
+  if (state.activeVoices.has(midi)) return;
+
+  const ctx  = state.audioContext;
+  const now  = ctx.currentTime;
+  const hz   = midiToHz(midi + synthParams.osc1Oct * 12);
+  const vel  = (velocity || 100) / 127;
+
+  // Portamento / glide
+  let startHz = hz;
+  if (synthParams.portaOn && state.lastHz !== null) {
+    startHz = state.lastHz;
+  }
+  state.lastHz = hz;
+
+  // Build oscillator layers
+  const oscs = [];
+
+  // OSC1
+  const osc1 = ctx.createOscillator();
+  osc1.type  = synthParams.osc1Wave;
+  osc1.frequency.setValueAtTime(startHz, now);
+  osc1.detune.value    = synthParams.osc1Det;
+  if (synthParams.portaOn && startHz !== hz) {
+    const pTime = synthParams.portaTime;
+    osc1.frequency.exponentialRampToValueAtTime(Math.max(0.00001, hz), now + pTime);
+  }
+  const osc1G = ctx.createGain();
+  osc1G.gain.value = synthParams.osc1Lvl;
+  osc1.connect(osc1G);
+  osc1.start(now);
+  oscs.push({ osc: osc1, gain: osc1G });
+
+  // OSC2
+  let osc2 = null, osc2G = null;
+  if (synthParams.osc2On) {
+    osc2 = ctx.createOscillator();
+    osc2.type = synthParams.osc2Wave;
+    osc2.frequency.setValueAtTime(startHz, now);
+    osc2.detune.value    = synthParams.osc2Det;
+    if (synthParams.portaOn && startHz !== hz) {
+      osc2.frequency.exponentialRampToValueAtTime(Math.max(0.00001, hz), now + synthParams.portaTime);
+    }
+    osc2G = ctx.createGain();
+    osc2G.gain.value = synthParams.osc2Lvl;
+    osc2.connect(osc2G);
+    osc2.start(now);
+    oscs.push({ osc: osc2, gain: osc2G });
+  }
+
+  // Sub osc (one octave below)
+  let subOsc = null, subG = null;
+  if (synthParams.subOn) {
+    subOsc = ctx.createOscillator();
+    subOsc.type = synthParams.subWave;
+    subOsc.frequency.setValueAtTime(startHz * 0.5, now);
+    if (synthParams.portaOn && startHz !== hz) {
+      subOsc.frequency.exponentialRampToValueAtTime(Math.max(0.00001, hz * 0.5), now + synthParams.portaTime);
+    }
+    subG = ctx.createGain();
+    subG.gain.value = synthParams.subLvl;
+    subOsc.connect(subG);
+    subOsc.start(now);
+    oscs.push({ osc: subOsc, gain: subG });
+  }
+
+  // Noise
+  let noiseNode = null, noiseG = null;
+  if (synthParams.noiseOn && state.noiseBuffer) {
+    noiseNode = ctx.createBufferSource();
+    noiseNode.buffer = state.noiseBuffer;
+    noiseNode.loop   = true;
+    noiseG = ctx.createGain();
+    noiseG.gain.value = synthParams.noiseLvl;
+    noiseNode.connect(noiseG);
+    noiseNode.start(now);
+  }
+
+  // Mix gain
+  const mixGain = ctx.createGain();
+  mixGain.gain.value = 1.0;
+  oscs.forEach(o => o.gain.connect(mixGain));
+  if (noiseG) noiseG.connect(mixGain);
+
+  // Unison (detune extra oscillators)
+  const uniOscs = [];
+  if (synthParams.uniOn) {
+    const nV = parseInt(synthParams.uniVoices) || 3;
+    const spread = synthParams.uniSpread;
+    // Normalize gain so total unison output doesn't scale with voice count
+    const uniLayerGain = synthParams.osc1Lvl / Math.sqrt(nV);
+    for (let i = 1; i < nV; i++) {
+      const detuneC = (i % 2 === 1 ? 1 : -1) * Math.ceil(i / 2) * (spread / Math.max(1, Math.floor(nV / 2)));
+      const uo = ctx.createOscillator();
+      uo.type = synthParams.osc1Wave;
+      uo.frequency.setValueAtTime(startHz, now);
+      uo.detune.value    = synthParams.osc1Det + detuneC;
+      if (synthParams.portaOn && startHz !== hz) {
+        uo.frequency.exponentialRampToValueAtTime(Math.max(0.00001, hz), now + synthParams.portaTime);
+      }
+      const ug = ctx.createGain();
+      ug.gain.value = uniLayerGain;
+      uo.connect(ug);
+      ug.connect(mixGain);
+      uo.start(now);
+      uniOscs.push({ osc: uo, gain: ug });
+    }
+  }
+
+  // Filter
+  let filterNode = null;
+  // typeFilter: when worklet is active, a post biquad enforces HP/BP/NT filter type.
+  // When fType='lowpass' or using biquad fallback, typeFilter is null (passthrough).
+  let typeFilter = null;
+  const baseHzF  = synthParams.fCutoff;
+  const keyOffF  = (midi - 60) * synthParams.fKeyTrack * (100/12);
+  const initModHz = clamp(baseHzF * Math.pow(2, keyOffF / 1200), 20, 18000);
+
+  if (state.workletReady) {
+    filterNode = new AudioWorkletNode(ctx, 'moog-ladder');
+    filterNode.parameters.get('cutoff').value    = initModHz;
+    filterNode.parameters.get('resonance').value = synthParams.fRes;
+    filterNode.parameters.get('drive').value     = synthParams.fDrive;
+    // Add a post biquad for filter type shaping (HP/BP/NT) — always present when worklet runs
+    typeFilter = ctx.createBiquadFilter();
+    typeFilter.type = synthParams.fType === 'lowpass' ? 'allpass' : synthParams.fType;
+    typeFilter.frequency.value = initModHz;
+    typeFilter.Q.value = synthParams.fRes * 10;
+  } else {
+    filterNode = ctx.createBiquadFilter();
+    filterNode.type = synthParams.fType;
+    filterNode.frequency.value = initModHz;
+    filterNode.Q.value         = synthParams.fRes * 10;
+  }
+
+  // VCA
+  const vcaGain = ctx.createGain();
+  vcaGain.gain.value = 0.00001;
+
+  // Wire: mixGain → filterNode [→ typeFilter] → vcaGain → masterGain
+  mixGain.connect(filterNode);
+  if (typeFilter) {
+    filterNode.connect(typeFilter);
+    typeFilter.connect(vcaGain);
+  } else {
+    filterNode.connect(vcaGain);
+  }
+  vcaGain.connect(state.masterGain);
+
+  // LFO routing — track connected destination nodes for clean disconnection on release
+  const lfoConnectedDests = [];
+  if (state.lfoModGain && synthParams.lfoDepth > 0) {
+    if (synthParams.lfoTarget === 'pitch') {
+      state.lfoModGain.connect(osc1.detune);
+      lfoConnectedDests.push({ node: state.lfoModGain, dest: osc1.detune });
+      if (osc2) {
+        state.lfoModGain.connect(osc2.detune);
+        lfoConnectedDests.push({ node: state.lfoModGain, dest: osc2.detune });
+      }
+      if (subOsc) {
+        state.lfoModGain.connect(subOsc.detune);
+        lfoConnectedDests.push({ node: state.lfoModGain, dest: subOsc.detune });
+      }
+      uniOscs.forEach(u => {
+        state.lfoModGain.connect(u.osc.detune);
+        lfoConnectedDests.push({ node: state.lfoModGain, dest: u.osc.detune });
+      });
+    } else if (synthParams.lfoTarget === 'filter') {
+      if (state.workletReady && filterNode.parameters) {
+        const cutoffParam = filterNode.parameters.get('cutoff');
+        state.lfoModGain.connect(cutoffParam);
+        lfoConnectedDests.push({ node: state.lfoModGain, dest: cutoffParam });
+      } else if (filterNode.frequency) {
+        state.lfoModGain.connect(filterNode.frequency);
+        lfoConnectedDests.push({ node: state.lfoModGain, dest: filterNode.frequency });
+      }
+    } else if (synthParams.lfoTarget === 'amp') {
+      if (state.lfoAmpGain) {
+        state.lfoAmpGain.connect(vcaGain.gain);
+        lfoConnectedDests.push({ node: state.lfoAmpGain, dest: vcaGain.gain });
+      }
+    }
+  }
+
+  // AMP ADSR
+  const aAtk = adsrToTime(synthParams.aA, 0.001, 8);
+  const aDec = adsrToTime(synthParams.aD, 0.001, 4);
+  const aSus = Math.max(0.00001, synthParams.aS);
+  // peak must never be 0 — exponentialRampToValueAtTime throws RangeError on 0
+  const peak = Math.max(0.00001, vel * 0.85);
+
+  vcaGain.gain.setValueAtTime(0.00001, now);
+  vcaGain.gain.exponentialRampToValueAtTime(peak, now + aAtk);
+  vcaGain.gain.exponentialRampToValueAtTime(Math.max(0.00001, peak * aSus), now + aAtk + aDec);
+
+  // FILTER ADSR — modulate cutoff param directly
+  if (synthParams.fEnvAmt > 0) {
+    const fAtk = adsrToTime(synthParams.fA, 0.001, 8);
+    const fDec = adsrToTime(synthParams.fD, 0.001, 4);
+    const fSus = Math.max(0.00001, synthParams.fS);
+    const baseHz2 = synthParams.fCutoff;
+    const keyOff  = (midi - 60) * synthParams.fKeyTrack * (100/12);
+    const baseMod = clamp(baseHz2 * Math.pow(2, keyOff / 1200), 20, 18000);
+    const peakHz  = clamp(baseMod + synthParams.fEnvAmt * 12000, 20, 18000);
+    const susHz   = clamp(baseMod + synthParams.fEnvAmt * fSus * 10000, 20, 18000);
+
+    if (state.workletReady && filterNode.parameters) {
+      const cParam = filterNode.parameters.get('cutoff');
+      cParam.cancelScheduledValues(now);
+      cParam.setValueAtTime(baseMod, now);
+      cParam.exponentialRampToValueAtTime(peakHz,  now + fAtk);
+      cParam.exponentialRampToValueAtTime(Math.max(20, susHz), now + fAtk + fDec);
+    } else if (filterNode.frequency) {
+      filterNode.frequency.cancelScheduledValues(now);
+      filterNode.frequency.setValueAtTime(baseMod, now);
+      filterNode.frequency.exponentialRampToValueAtTime(peakHz,  now + fAtk);
+      filterNode.frequency.exponentialRampToValueAtTime(Math.max(20, susHz), now + fAtk + fDec);
+    }
+  }
+
+  const voice = {
+    midi, hz, vcaGain, filterNode, typeFilter, mixGain,
+    oscs, uniOscs, noiseNode, noiseG,
+    biquad: state.workletReady ? null : filterNode,
+    ladder: state.workletReady ? filterNode : null,
+    lfoConnectedDests
+  };
+
+  state.activeVoices.set(midi, voice);
+}
+
+function releaseVoice(midi) {
+  if (!state.audioContext) return;
+  const voice = state.activeVoices.get(midi);
+  if (!voice) return;
+
+  const ctx = state.audioContext;
+  const now = ctx.currentTime;
+  const aRel = adsrToTime(synthParams.aR, 0.01, 10);
+  const fRel = adsrToTime(synthParams.fR, 0.01, 10);
+
+  // AMP release
+  voice.vcaGain.gain.cancelScheduledValues(now);
+  voice.vcaGain.gain.setValueAtTime(Math.max(0.00001, voice.vcaGain.gain.value), now);
+  voice.vcaGain.gain.exponentialRampToValueAtTime(0.00001, now + aRel);
+
+  // Filter release
+  if (synthParams.fEnvAmt > 0) {
+    const baseHz2 = synthParams.fCutoff;
+    const keyOff  = (midi - 60) * synthParams.fKeyTrack * (100/12);
+    const baseMod = clamp(baseHz2 * Math.pow(2, keyOff / 1200), 20, 18000);
+    if (voice.ladder && voice.ladder.parameters) {
+      const cParam = voice.ladder.parameters.get('cutoff');
+      cParam.cancelScheduledValues(now);
+      cParam.setValueAtTime(Math.max(20, cParam.value), now);
+      cParam.exponentialRampToValueAtTime(Math.max(20, baseMod), now + fRel);
+    } else if (voice.biquad) {
+      voice.biquad.frequency.cancelScheduledValues(now);
+      voice.biquad.frequency.setValueAtTime(Math.max(20, voice.biquad.frequency.value), now);
+      voice.biquad.frequency.exponentialRampToValueAtTime(Math.max(20, baseMod), now + fRel);
+    }
+  }
+
+  const stopAt = now + aRel + 0.05;
+  voice.oscs.forEach(o => { try { o.osc.stop(stopAt); } catch(e){} });
+  voice.uniOscs.forEach(o => { try { o.osc.stop(stopAt); } catch(e){} });
+  if (voice.noiseNode) { try { voice.noiseNode.stop(stopAt); } catch(e){} }
+
+  // Disconnect LFO connections immediately to free the AudioParam references
+  if (voice.lfoConnectedDests) {
+    voice.lfoConnectedDests.forEach(({ node, dest }) => {
+      try { node.disconnect(dest); } catch(e){}
+    });
+  }
+
+  state.activeVoices.delete(midi);
+
+  // Schedule cleanup of all audio nodes after the release tail ends
+  const cleanupDelay = (aRel + 0.1) * 1000;
+  setTimeout(() => {
+    try { voice.vcaGain.disconnect(); } catch(e){}
+    try { voice.filterNode.disconnect(); } catch(e){}
+    if (voice.typeFilter) { try { voice.typeFilter.disconnect(); } catch(e){} }
+    try { voice.mixGain.disconnect(); } catch(e){}
+    voice.oscs.forEach(o => {
+      try { o.osc.disconnect(); } catch(e){}
+      try { o.gain.disconnect(); } catch(e){}
+    });
+    voice.uniOscs.forEach(o => {
+      try { o.osc.disconnect(); } catch(e){}
+      try { o.gain.disconnect(); } catch(e){}
+    });
+    if (voice.noiseNode) { try { voice.noiseNode.disconnect(); } catch(e){} }
+    if (voice.noiseG)    { try { voice.noiseG.disconnect(); }    catch(e){} }
+  }, cleanupDelay);
+}
+
+/* ═══════════════════════════════════════════════
+   ENSURE AUDIO + INIT
+═══════════════════════════════════════════════ */
+async function ensureAudio() {
+  if (!state.audioContext) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { audioStatusEl.textContent = 'Web Audio not supported'; return false; }
+
+    const ctx = new AC();
+    state.audioContext = ctx;
+
+    // Master gain
+    state.masterGain = ctx.createGain();
+    state.masterGain.gain.value = state.volume * 0.18;
+
+    // Load worklet
+    await loadWorklet(ctx);
+
+    // Noise buffer
+    buildNoiseBuffer(ctx);
+
+    // FX chain
+    buildFXChain(ctx);
+
+    // LFO
+    buildLFO(ctx);
+
+    // Oscilloscope
+    startOscilloscope();
+  }
+
+  if (state.audioContext.state === 'suspended') {
+    await state.audioContext.resume();
+  }
+
+  audioStatusEl.textContent = state.workletReady ? 'Moog Ladder' : 'Biquad Fallback';
+  audioDotEl.classList.add('on');
+  return true;
+}
+
+/* ═══════════════════════════════════════════════
+   OSCILLOSCOPE
+═══════════════════════════════════════════════ */
+function startOscilloscope() {
+  if (!state.analyser) return;
+  const canvas = oscCanvas;
+  const ctx2   = canvas.getContext('2d');
+  const buf    = new Float32Array(state.analyser.fftSize);
+
+  function draw() {
+    state.oscAnimId = requestAnimationFrame(draw);
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+    if (canvas.width !== W || canvas.height !== H) {
+      canvas.width  = W;
+      canvas.height = H;
+    }
+    state.analyser.getFloatTimeDomainData(buf);
+
+    ctx2.fillStyle = '#080705';
+    ctx2.fillRect(0, 0, W, H);
+
+    ctx2.beginPath();
+    ctx2.strokeStyle = '#c85f32';
+    ctx2.lineWidth   = 1.5;
+    ctx2.shadowBlur  = 6;
+    ctx2.shadowColor = '#c85f3280';
+
+    const sliceW = W / buf.length;
+    let x = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const y = (1 - (buf[i] * 0.8 + 1) * 0.5) * H;
+      if (i === 0) ctx2.moveTo(x, y);
+      else         ctx2.lineTo(x, y);
+      x += sliceW;
+    }
+    ctx2.stroke();
+  }
+  draw();
+}
+
+/* ═══════════════════════════════════════════════
+   NOTE ON / OFF
+═══════════════════════════════════════════════ */
+async function noteOn(midi, source, velocity = 100) {
+  const ready = await ensureAudio();
+  state.heldNotes.add(midi);
+  // If this note was sustained (voice still ringing from a previous press while sustain was on),
+  // release the old voice so playVoice() can retrigger with a fresh envelope.
+  if (state.sustainedNotes.has(midi)) {
+    state.sustainedNotes.delete(midi);
+    releaseVoice(midi);
+  }
+  updateKeyActive(midi, true);
+  noteStatusEl.textContent = midiToLabel(midi) + ' (' + source + ')';
+
+  if (ready) {
+    if (!synthParams.legatoOn || state.activeVoices.size === 0) {
+      playVoice(midi, velocity);
+    } else {
+      // Legato: slide all existing voice pitches to the new note
+      state.activeVoices.forEach(v => {
+        if (v.oscs[0]) {
+          v.oscs[0].osc.frequency.linearRampToValueAtTime(
+            midiToHz(midi + synthParams.osc1Oct * 12),
+            state.audioContext.currentTime + synthParams.portaTime
+          );
+        }
+      });
+    }
+  }
+
+  sendMidiNoteOn(midi, velocity);
+}
+
+function noteOff(midi) {
+  state.heldNotes.delete(midi);
+  if (state.sustain) {
+    state.sustainedNotes.add(midi);
+  } else {
+    releaseVoice(midi);
+    updateKeyActive(midi, false);
+    sendMidiNoteOff(midi);
+  }
+}
+
+function flushSustain() {
+  for (const midi of state.sustainedNotes) {
+    releaseVoice(midi);
+    sendMidiNoteOff(midi);
+    updateKeyActive(midi, false);
+  }
+  state.sustainedNotes.clear();
+}
+
+/* ═══════════════════════════════════════════════
+   MIDI OUTPUT
+═══════════════════════════════════════════════ */
+function sendMidiNoteOn(midi, velocity = 100) {
+  if (state.midiOutput) state.midiOutput.send([0x90, midi, velocity]);
+}
+function sendMidiNoteOff(midi) {
+  if (state.midiOutput) state.midiOutput.send([0x80, midi, 0]);
+}
+
+/* ═══════════════════════════════════════════════
+   KEY ACTIVE STATE
+═══════════════════════════════════════════════ */
+function updateKeyActive(midi, isActive) {
+  const key = state.keyElements.get(midi);
+  if (key) key.classList.toggle('active', isActive);
+}
+
+/* ═══════════════════════════════════════════════
+   KEYBOARD BUILDER
+═══════════════════════════════════════════════ */
+function rebuildKeyboard() {
+  whiteKeysEl.innerHTML = '';
+  keyboardEl.querySelectorAll('.black').forEach(k => k.remove());
+  state.keyElements.clear();
+
+  const whiteNotes = [];
+  for (let offset = 0; offset <= 24; offset++) {
+    const midi = state.baseMidi + offset;
+    if (!blackSet.has(midi % 12)) whiteNotes.push(midi);
+  }
+
+  whiteNotes.forEach(midi => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'key white';
+    btn.dataset.midi = String(midi);
+    btn.innerHTML = '<span class="label"><span class="kbd"></span><span class="note"></span></span>';
+    whiteKeysEl.appendChild(btn);
+    state.keyElements.set(midi, btn);
+  });
+
+  const whiteIdx = new Map();
+  whiteNotes.forEach((midi, i) => whiteIdx.set(midi, i));
+
+  for (let offset = 0; offset <= 24; offset++) {
+    const midi = state.baseMidi + offset;
+    if (!blackSet.has(midi % 12)) continue;
+    const prevWhite = midi - 1;
+    const wi = whiteIdx.get(prevWhite);
+    if (wi === undefined) continue;
+    const black = document.createElement('button');
+    black.type = 'button';
+    black.className = 'key black';
+    black.dataset.midi = String(midi);
+    black.style.left = ((wi + 1) * (100 / whiteNotes.length)) + '%';
+    black.innerHTML = '<span class="label"><span class="kbd"></span><span class="note"></span></span>';
+    keyboardEl.appendChild(black);
+    state.keyElements.set(midi, black);
+  }
+
+  for (let offset = 0; offset <= 24; offset++) {
+    const midi = state.baseMidi + offset;
+    const key  = state.keyElements.get(midi);
+    if (!key) continue;
+    const kl = key.querySelector('.kbd');
+    const nl = key.querySelector('.note');
+    if (kl) kl.textContent = KB_MAP[offset] ? KB_MAP[offset].toUpperCase() : '';
+    if (nl) nl.textContent = midiToLabel(midi);
+  }
+
+  updateRangeLabel();
+}
+
+/* ═══════════════════════════════════════════════
+   POINTER EVENTS (KEYBOARD)
+═══════════════════════════════════════════════ */
+function findKeyFromPoint(x, y) {
+  const el = document.elementFromPoint(x, y);
+  return el ? el.closest('.key') : null;
+}
+
+async function handlePointerStart(e) {
+  const key = e.target.closest('.key');
+  if (!key) return;
+  e.preventDefault();
+  key.setPointerCapture(e.pointerId);
+  const midi = Number(key.dataset.midi);
+  state.pointerMap.set(e.pointerId, midi);
+  // Use pointer pressure for velocity; pressure=0 means unspecified (e.g. mouse), default to 100
+  const velocity = e.pressure > 0 ? Math.round(clamp(e.pressure, 0, 1) * 127) : 100;
+  await noteOn(midi, 'touch', velocity);
+}
+
+async function handlePointerMove(e) {
+  if (!state.pointerMap.has(e.pointerId)) return;
+  const cur = state.pointerMap.get(e.pointerId);
+  const tgt = findKeyFromPoint(e.clientX, e.clientY);
+  if (!tgt) return;
+  const next = Number(tgt.dataset.midi);
+  if (next === cur) return;
+  noteOff(cur);
+  state.pointerMap.set(e.pointerId, next);
+  const velocity = e.pressure > 0 ? Math.round(clamp(e.pressure, 0, 1) * 127) : 100;
+  await noteOn(next, 'slide', velocity);
+}
+
+function handlePointerEnd(e) {
+  const midi = state.pointerMap.get(e.pointerId);
+  if (midi === undefined) return;
+  state.pointerMap.delete(e.pointerId);
+  noteOff(midi);
+}
+
+/* ═══════════════════════════════════════════════
+   OCTAVE SHIFT
+═══════════════════════════════════════════════ */
+function shiftOctave(delta) {
+  const next = state.baseMidi + delta * 12;
+  if (next < 36 || next > 84) return;
+  [...state.heldNotes, ...state.sustainedNotes].forEach(midi => {
+    releaseVoice(midi);
+    sendMidiNoteOff(midi);
+  });
+  state.heldNotes.clear();
+  state.sustainedNotes.clear();
+  state.pointerMap.clear();
+  state.baseMidi = next;
+  rebuildKeyboard();
+}
+
+/* ═══════════════════════════════════════════════
+   MIDI ACCESS
+═══════════════════════════════════════════════ */
+async function initMidi() {
+  if (!navigator.requestMIDIAccess) {
+    midiStatusEl.textContent = 'Web MIDI unavailable';
+    return;
+  }
+  try {
+    state.midiAccess = await navigator.requestMIDIAccess();
+    refreshMidiOutputs();
+    midiStatusEl.textContent = state.midiAccess.outputs.size
+      ? state.midiAccess.outputs.size + ' output(s)'
+      : 'No outputs';
+  } catch(e) {
+    midiStatusEl.textContent = 'Permission denied';
+  }
+}
+
+function refreshMidiOutputs() {
+  midiOutputSel.innerHTML = '<option value="">None</option>';
+  if (!state.midiAccess) return;
+  const outs = Array.from(state.midiAccess.outputs.values());
+  outs.forEach(out => {
+    const opt = document.createElement('option');
+    opt.value = out.id;
+    opt.textContent = out.name || out.manufacturer || 'MIDI Output';
+    midiOutputSel.appendChild(opt);
+  });
+  if (outs.length === 1) {
+    midiOutputSel.value = outs[0].id;
+    state.midiOutput = outs[0];
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   EVENT LISTENERS
+═══════════════════════════════════════════════ */
+document.getElementById('startAudio').addEventListener('click', ensureAudio);
+document.getElementById('midiEnable').addEventListener('click', initMidi);
+document.getElementById('octaveDown').addEventListener('click', () => shiftOctave(-1));
+document.getElementById('octaveUp').addEventListener('click',   () => shiftOctave(1));
+
+document.getElementById('volume').addEventListener('input', e => {
+  state.volume = Number(e.target.value) / 100;
+  if (state.masterGain) state.masterGain.gain.value = state.volume * 0.18;
+});
+
+document.getElementById('sustain').addEventListener('click', () => {
+  state.sustain = !state.sustain;
+  sustainBtn.textContent = state.sustain ? 'Sustain On' : 'Sustain Off';
+  sustainBtn.classList.toggle('active', state.sustain);
+  if (!state.sustain) {
+    state.heldNotes.forEach(m => updateKeyActive(m, true));
+    flushSustain();
+  }
+});
+
+midiOutputSel.addEventListener('change', () => {
+  const id = midiOutputSel.value;
+  state.midiOutput = id && state.midiAccess ? state.midiAccess.outputs.get(id) : null;
+  midiStatusEl.textContent = state.midiOutput
+    ? 'Out: ' + (state.midiOutput.name || 'selected')
+    : (state.midiAccess ? 'No output' : 'Off');
+});
+
+// Keyboard events
+document.addEventListener('keydown', async e => {
+  if (e.repeat) return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
+  if (e.key === '[') { shiftOctave(-1); return; }
+  if (e.key === ']') { shiftOctave(1);  return; }
+  if (e.key === ' ') { e.preventDefault(); document.getElementById('sustain').click(); return; }
+  const idx = KB_MAP.indexOf(e.key.toLowerCase());
+  if (idx === -1) return;
+  e.preventDefault();
+  await noteOn(state.baseMidi + idx, 'keyboard');
+});
+
+document.addEventListener('keyup', e => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
+  const idx = KB_MAP.indexOf(e.key.toLowerCase());
+  if (idx === -1) return;
+  noteOff(state.baseMidi + idx);
+});
+
+// Piano pointer events
+keyboardEl.addEventListener('pointerdown',  handlePointerStart);
+keyboardEl.addEventListener('pointermove',  handlePointerMove);
+keyboardEl.addEventListener('pointerup',    handlePointerEnd);
+keyboardEl.addEventListener('pointercancel',handlePointerEnd);
+// pointerleave fires when pointer exits the keyboard container.
+// Per spec, setPointerCapture suppresses pointerleave during capture, but guard
+// defensively: if the key element still holds capture, pointerup will handle the release.
+keyboardEl.addEventListener('pointerleave', e => {
+  if (!state.pointerMap.has(e.pointerId)) return;
+  const midi = state.pointerMap.get(e.pointerId);
+  const keyEl = state.keyElements.get(midi);
+  // If the capturing key element still holds this pointer, skip — pointerup will fire
+  if (keyEl && typeof keyEl.hasPointerCapture === 'function' && keyEl.hasPointerCapture(e.pointerId)) return;
+  handlePointerEnd(e);
+});
+
+// Preset events
+document.getElementById('presetPrev').addEventListener('click', () => {
+  applyPreset((currentPresetIndex - 1 + allPresets.length) % allPresets.length);
+});
+document.getElementById('presetNext').addEventListener('click', () => {
+  applyPreset((currentPresetIndex + 1) % allPresets.length);
+});
+document.getElementById('presetSelect').addEventListener('change', e => {
+  applyPreset(Number(e.target.value));
+});
+document.getElementById('savePreset').addEventListener('click', () => {
+  const name = prompt('Preset name:', 'My Preset');
+  if (!name) return;
+  const p = { name, ...JSON.parse(JSON.stringify(synthParams)) };
+  userPresets.push(p);
+  localStorage.setItem('pk-presets', JSON.stringify(userPresets));
+  allPresets = [...FACTORY_PRESETS, ...userPresets];
+  buildPresetSelect();
+  applyPreset(allPresets.length - 1);
+});
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+buildKnobs();
+buildUIWiring();
+buildPresetSelect();
+applyPreset(0);
+rebuildKeyboard();
+
+</script>
+</body>
+</html>
