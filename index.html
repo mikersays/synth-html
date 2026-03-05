@@ -107,10 +107,10 @@
     .adsr-row label { font-size: 0.57rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
     .adsr-row input[type=range] { width: 100%; accent-color: var(--accent); height: 14px; }
 
-    /* ── Oscilloscope ── */
-    .viz-bar { padding: 4px 10px 6px; }
-    #osc-canvas {
-      width: 100%; height: 56px; background: #08070500; border-radius: 6px;
+    /* ── Oscilloscope + Spectrum ── */
+    .viz-bar { padding: 4px 10px 6px; display: flex; gap: 8px; }
+    #osc-canvas, #spectrum-canvas {
+      flex: 1; min-width: 0; height: 56px; background: #08070500; border-radius: 6px;
       border: 1px solid var(--panel-border); display: block;
     }
 
@@ -429,6 +429,7 @@
 <!-- ════════════════════════════ VIZ + STATUS ════════════════════════════ -->
 <div class="viz-bar">
   <canvas id="osc-canvas" width="800" height="56"></canvas>
+  <canvas id="spectrum-canvas" width="800" height="56"></canvas>
 </div>
 
 <!-- Status / controls strip -->
@@ -454,7 +455,11 @@
   &nbsp;|&nbsp;
   <button class="ctrl-btn" id="sustain">Sustain Off</button>
   &nbsp;|&nbsp;
+  <button class="ctrl-btn" id="recordBtn" style="color:#e44;">Record</button>
+  <button class="ctrl-btn" id="shareBtn">Share</button>
+  &nbsp;|&nbsp;
   <span id="noteStatus" style="font-size:0.72rem;color:var(--muted);">No note</span>
+  <span id="voiceCount" style="font-size:0.72rem;color:var(--muted);"></span>
 </div>
 
 <!-- ════════════════════════════ KEYBOARD ════════════════════════════ -->
@@ -477,6 +482,7 @@ const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 // ,=12 l=13 .=14 ;=15 /=16 q=17 2=18 w=19 3=20 e=21 r=22 5=23
 const KB_MAP = ["z","s","x","d","c","v","g","b","h","n","j","m",",","l",".",";","/","q","2","w","3","e","r","5"];
 const blackSet = new Set([1,3,6,8,10]);
+const MAX_VOICES = 16;
 
 /* ═══════════════════════════════════════════════
    SYNTH PARAMS
@@ -744,6 +750,7 @@ const state = {
   analyser: null,
   fx: null,
   lastHz: null,
+  pitchBendCents: 0,
   workletReady: false,
   oscAnimId: null,
   reverbBuffer: null
@@ -762,6 +769,8 @@ const midiOutputSel = document.getElementById('midiOutput');
 const whiteKeysEl   = document.getElementById('whiteKeys');
 const keyboardEl    = document.getElementById('keyboard');
 const oscCanvas     = document.getElementById('osc-canvas');
+const specCanvas    = document.getElementById('spectrum-canvas');
+const voiceCountEl  = document.getElementById('voiceCount');
 
 /* ═══════════════════════════════════════════════
    HELPERS
@@ -1258,6 +1267,12 @@ function buildFXChain(ctx) {
   comp.attack.value    = 0.003;
   comp.release.value   = 0.15;
 
+  // ── Anti-aliasing filter (18kHz brick wall) ──
+  const aaFilter = ctx.createBiquadFilter();
+  aaFilter.type = 'lowpass';
+  aaFilter.frequency.value = 18000;
+  aaFilter.Q.value = 0.7;
+
   // ── Analyser ──
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
@@ -1292,7 +1307,8 @@ function buildFXChain(ctx) {
 
   // Output chain
   fxBus.connect(comp);
-  comp.connect(analyser);
+  comp.connect(aaFilter);
+  aaFilter.connect(analyser);
   analyser.connect(ctx.destination);
 
   state.fx = {
@@ -1464,6 +1480,15 @@ function playVoice(midi, velocity) {
   if (!state.audioContext) return;
   if (state.activeVoices.has(midi)) return;
 
+  // Voice stealing: release oldest voice if at capacity
+  if (state.activeVoices.size >= MAX_VOICES) {
+    let oldestMidi = null, oldestTime = Infinity;
+    state.activeVoices.forEach((v, m) => {
+      if (v.startTime < oldestTime) { oldestMidi = m; oldestTime = v.startTime; }
+    });
+    if (oldestMidi !== null) releaseVoice(oldestMidi);
+  }
+
   const ctx  = state.audioContext;
   const now  = ctx.currentTime;
   const hz   = midiToHz(midi + synthParams.osc1Oct * 12);
@@ -1483,7 +1508,8 @@ function playVoice(midi, velocity) {
   const osc1 = ctx.createOscillator();
   osc1.type  = synthParams.osc1Wave;
   osc1.frequency.setValueAtTime(startHz, now);
-  osc1.detune.value    = synthParams.osc1Det;
+  osc1._baseDet = synthParams.osc1Det;
+  osc1.detune.value    = synthParams.osc1Det + state.pitchBendCents;
   if (synthParams.portaOn && startHz !== hz) {
     const pTime = synthParams.portaTime;
     osc1.frequency.exponentialRampToValueAtTime(Math.max(0.00001, hz), now + pTime);
@@ -1500,7 +1526,8 @@ function playVoice(midi, velocity) {
     osc2 = ctx.createOscillator();
     osc2.type = synthParams.osc2Wave;
     osc2.frequency.setValueAtTime(startHz, now);
-    osc2.detune.value    = synthParams.osc2Det;
+    osc2._baseDet = synthParams.osc2Det;
+    osc2.detune.value    = synthParams.osc2Det + state.pitchBendCents;
     if (synthParams.portaOn && startHz !== hz) {
       osc2.frequency.exponentialRampToValueAtTime(Math.max(0.00001, hz), now + synthParams.portaTime);
     }
@@ -1557,7 +1584,8 @@ function playVoice(midi, velocity) {
       const uo = ctx.createOscillator();
       uo.type = synthParams.osc1Wave;
       uo.frequency.setValueAtTime(startHz, now);
-      uo.detune.value    = synthParams.osc1Det + detuneC;
+      uo._baseDet = synthParams.osc1Det + detuneC;
+      uo.detune.value    = uo._baseDet + state.pitchBendCents;
       if (synthParams.portaOn && startHz !== hz) {
         uo.frequency.exponentialRampToValueAtTime(Math.max(0.00001, hz), now + synthParams.portaTime);
       }
@@ -1686,10 +1714,12 @@ function playVoice(midi, velocity) {
     oscs, uniOscs, noiseNode, noiseG,
     biquad: state.workletReady ? null : filterNode,
     ladder: state.workletReady ? filterNode : null,
-    lfoConnectedDests
+    lfoConnectedDests,
+    startTime: now
   };
 
   state.activeVoices.set(midi, voice);
+  updateVoiceCount();
 }
 
 function releaseVoice(midi) {
@@ -1737,6 +1767,7 @@ function releaseVoice(midi) {
   }
 
   state.activeVoices.delete(midi);
+  updateVoiceCount();
 
   // Schedule cleanup of all audio nodes after the release tail ends
   const cleanupDelay = (aRel + 0.1) * 1000;
@@ -1785,8 +1816,9 @@ async function ensureAudio() {
     // LFO
     buildLFO(ctx);
 
-    // Oscilloscope
+    // Oscilloscope + Spectrum
     startOscilloscope();
+    startSpectrumAnalyzer();
   }
 
   if (state.audioContext.state === 'suspended') {
@@ -2035,11 +2067,60 @@ async function initMidi() {
   try {
     state.midiAccess = await navigator.requestMIDIAccess();
     refreshMidiOutputs();
-    midiStatusEl.textContent = state.midiAccess.outputs.size
-      ? state.midiAccess.outputs.size + ' output(s)'
-      : 'No outputs';
+    attachMidiInputs();
+    state.midiAccess.onstatechange = () => {
+      refreshMidiOutputs();
+      attachMidiInputs();
+    };
+    const ins = state.midiAccess.inputs.size;
+    const outs = state.midiAccess.outputs.size;
+    midiStatusEl.textContent = ins + ' in / ' + outs + ' out';
   } catch(e) {
     midiStatusEl.textContent = 'Permission denied';
+  }
+}
+
+function attachMidiInputs() {
+  if (!state.midiAccess) return;
+  for (const input of state.midiAccess.inputs.values()) {
+    input.onmidimessage = handleMidiMessage;
+  }
+}
+
+function handleMidiMessage(e) {
+  const [status, data1, data2] = e.data;
+  const cmd = status & 0xF0;
+
+  if (cmd === 0x90 && data2 > 0) {
+    // Note On
+    noteOn(data1, 'midi', data2);
+  } else if (cmd === 0x80 || (cmd === 0x90 && data2 === 0)) {
+    // Note Off
+    noteOff(data1);
+  } else if (cmd === 0xB0) {
+    // CC messages
+    if (data1 === 64) {
+      // Sustain pedal
+      if (data2 >= 64 && !state.sustain) {
+        document.getElementById('sustain').click();
+      } else if (data2 < 64 && state.sustain) {
+        document.getElementById('sustain').click();
+      }
+    } else if (data1 === 1) {
+      // Mod wheel -> LFO depth
+      synthParams.lfoDepth = data2 / 127;
+      if (knobs.lfoDepth) knobs.lfoDepth.setValue(synthParams.lfoDepth);
+      updateLFODepth();
+    }
+  } else if (cmd === 0xE0) {
+    // Pitch bend (+/- 2 semitones)
+    const bend = ((data2 << 7) | data1) - 8192;
+    const cents = (bend / 8192) * 200;
+    state.pitchBendCents = cents;
+    state.activeVoices.forEach(voice => {
+      voice.oscs.forEach(o => { o.osc.detune.value = (o._baseDet || 0) + cents; });
+      voice.uniOscs.forEach(o => { o.osc.detune.value = (o._baseDet || 0) + cents; });
+    });
   }
 }
 
@@ -2151,12 +2232,131 @@ document.getElementById('savePreset').addEventListener('click', () => {
 });
 
 /* ═══════════════════════════════════════════════
+   VOICE COUNT DISPLAY
+═══════════════════════════════════════════════ */
+function updateVoiceCount() {
+  if (voiceCountEl) voiceCountEl.textContent = 'Voices: ' + state.activeVoices.size + '/' + MAX_VOICES;
+}
+
+/* ═══════════════════════════════════════════════
+   SPECTRUM ANALYZER
+═══════════════════════════════════════════════ */
+function startSpectrumAnalyzer() {
+  if (!state.analyser) return;
+  const canvas = specCanvas;
+  const ctx2 = canvas.getContext('2d');
+  const bufLen = state.analyser.frequencyBinCount;
+  const freqData = new Uint8Array(bufLen);
+
+  function drawSpectrum() {
+    state.specAnimId = requestAnimationFrame(drawSpectrum);
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+    if (canvas.width !== W || canvas.height !== H) {
+      canvas.width = W;
+      canvas.height = H;
+    }
+    state.analyser.getByteFrequencyData(freqData);
+
+    ctx2.fillStyle = '#080705';
+    ctx2.fillRect(0, 0, W, H);
+
+    const barCount = Math.min(bufLen, 128);
+    const barW = W / barCount;
+    for (let i = 0; i < barCount; i++) {
+      const idx = Math.floor(i * bufLen / barCount);
+      const val = freqData[idx] / 255;
+      const barH = val * H;
+      const hue = 20 + val * 15; // warm orange range
+      ctx2.fillStyle = `hsl(${hue}, 80%, ${30 + val * 40}%)`;
+      ctx2.fillRect(i * barW, H - barH, barW - 1, barH);
+    }
+  }
+  drawSpectrum();
+}
+
+/* ═══════════════════════════════════════════════
+   AUDIO RECORDING
+═══════════════════════════════════════════════ */
+let mediaRecorder = null;
+let recordedChunks = [];
+
+document.getElementById('recordBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('recordBtn');
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    btn.textContent = 'Record';
+    btn.style.color = '#e44';
+    return;
+  }
+
+  const ready = await ensureAudio();
+  if (!ready) return;
+
+  const dest = state.audioContext.createMediaStreamDestination();
+  state.fx.analyser.connect(dest);
+
+  recordedChunks = [];
+  mediaRecorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm' });
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pulse-keys-recording.webm';
+    a.click();
+    URL.revokeObjectURL(url);
+    // Disconnect the recording tap
+    try { state.fx.analyser.disconnect(dest); } catch(e) {}
+  };
+  mediaRecorder.start();
+  btn.textContent = 'Stop';
+  btn.style.color = '#5cb85c';
+});
+
+/* ═══════════════════════════════════════════════
+   URL PRESET SHARING
+═══════════════════════════════════════════════ */
+function loadPresetFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('p')) return false;
+  try {
+    const decoded = JSON.parse(atob(params.get('p')));
+    Object.assign(synthParams, decoded);
+    updateAllUI();
+    syncFX();
+    document.getElementById('presetName').textContent = decoded.name || 'Shared Preset';
+    return true;
+  } catch(e) {
+    console.warn('Failed to load preset from URL:', e);
+    return false;
+  }
+}
+
+document.getElementById('shareBtn').addEventListener('click', () => {
+  const preset = JSON.parse(JSON.stringify(synthParams));
+  preset.name = allPresets[currentPresetIndex]?.name || 'Shared';
+  const encoded = btoa(JSON.stringify(preset));
+  const url = window.location.origin + window.location.pathname + '?p=' + encoded;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('shareBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Share'; }, 1500);
+  }).catch(() => {
+    prompt('Copy this URL to share your preset:', url);
+  });
+});
+
+/* ═══════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════ */
 buildKnobs();
 buildUIWiring();
 buildPresetSelect();
-applyPreset(0);
+if (!loadPresetFromURL()) {
+  applyPreset(0);
+}
 rebuildKeyboard();
 
 </script>
